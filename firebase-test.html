@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Wheel Shop · Firebase Connection Test</title>
+<style>
+  body{font-family:system-ui,-apple-system,sans-serif;max-width:680px;margin:24px auto;padding:0 16px;background:#f8fafc;color:#0f172a}
+  h1{font-size:18px;margin-bottom:4px}
+  .sub{color:#64748b;font-size:13px;margin-bottom:20px}
+  .panel{background:#fff;border:1px solid #cbd5e1;border-radius:8px;padding:16px;margin-bottom:14px}
+  .panel-ttl{font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#475569;margin-bottom:10px}
+  textarea{width:100%;min-height:140px;font-family:Menlo,Consolas,monospace;font-size:11px;padding:10px;border:1px solid #cbd5e1;border-radius:5px;box-sizing:border-box}
+  input[type=text]{width:100%;font-family:Menlo,Consolas,monospace;font-size:13px;padding:10px;border:1px solid #cbd5e1;border-radius:5px;box-sizing:border-box;font-variant-numeric:tabular-nums}
+  button{background:#2563eb;color:white;border:none;padding:10px 18px;border-radius:5px;font-size:13px;font-weight:600;cursor:pointer;margin-right:8px;margin-top:8px}
+  button:disabled{background:#cbd5e1;cursor:not-allowed}
+  button.danger{background:#dc2626}
+  button.alt{background:#64748b}
+  .status{padding:10px;border-radius:5px;font-size:12px;font-family:Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-all}
+  .status.ok{background:#dcfce7;color:#14532d;border:1px solid #4ade80}
+  .status.err{background:#fee2e2;color:#7f1d1d;border:1px solid #f87171}
+  .status.info{background:#dbeafe;color:#1e3a8a;border:1px solid #60a5fa}
+  .step{display:flex;gap:10px;margin:8px 0;font-size:13px}
+  .step-n{flex:0 0 22px;height:22px;background:#2563eb;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:11px}
+  .step-t{flex:1}
+  code{background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:12px}
+  ol li{margin:6px 0;font-size:13px;line-height:1.5}
+  .ok-mark{color:#16a34a;font-weight:600}
+  .err-mark{color:#dc2626;font-weight:600}
+</style>
+</head>
+<body>
+
+<h1>Wheel Shop · Firebase Connection Test</h1>
+<div class="sub">Use this page to verify your Firebase setup before deploying the full dashboard.</div>
+
+<div class="panel">
+  <div class="panel-ttl">Step 1 — Paste your Firebase config</div>
+  <p style="font-size:12px;color:#475569;margin:0 0 8px 0">From the Firebase console, copy the JS config object you got after creating a Web app. It looks like:</p>
+  <textarea id="fb-config" placeholder='const firebaseConfig = {
+  apiKey: "AIza...",
+  authDomain: "wheel-shop-twin.firebaseapp.com",
+  projectId: "wheel-shop-twin",
+  ...
+};'></textarea>
+  <button onclick="initFirebase()">Connect to Firebase</button>
+  <div id="init-status"></div>
+</div>
+
+<div class="panel">
+  <div class="panel-ttl">Step 2 — Authenticate (anonymous)</div>
+  <p style="font-size:12px;color:#475569;margin:0 0 8px 0">After config is loaded, click below to authenticate this device. Firebase will issue an anonymous user ID.</p>
+  <button id="auth-btn" onclick="signInAnon()" disabled>Sign in anonymously</button>
+  <div id="auth-status"></div>
+</div>
+
+<div class="panel">
+  <div class="panel-ttl">Step 3 — Write a test value</div>
+  <p style="font-size:12px;color:#475569;margin:0 0 8px 0">Writes to <code>state/test</code> document. Check the Firebase Firestore console to see it appear.</p>
+  <input id="test-val" type="text" placeholder="any text — type something" value=""/>
+  <button id="write-btn" onclick="writeTest()" disabled>Write to Firestore</button>
+  <div id="write-status"></div>
+</div>
+
+<div class="panel">
+  <div class="panel-ttl">Step 4 — Read the test value back</div>
+  <p style="font-size:12px;color:#475569;margin:0 0 8px 0">Reads <code>state/test</code> once. Should return whatever you wrote in step 3 (or what another device wrote).</p>
+  <button id="read-btn" onclick="readTest()" disabled>Read from Firestore</button>
+  <div id="read-status"></div>
+</div>
+
+<div class="panel">
+  <div class="panel-ttl">Step 5 — Live subscription (real-time test)</div>
+  <p style="font-size:12px;color:#475569;margin:0 0 8px 0">Subscribes to <code>state/test</code> and shows changes as they happen. Open this page on a second device, write from one, watch the other update instantly.</p>
+  <button id="sub-btn" onclick="startSubscribe()" disabled>Start live subscription</button>
+  <button id="unsub-btn" onclick="stopSubscribe()" disabled>Stop subscription</button>
+  <div id="sub-status"></div>
+</div>
+
+<div class="panel">
+  <div class="panel-ttl">Status legend</div>
+  <p style="font-size:12px;color:#475569;margin:0">
+    <span class="ok-mark">✓ green</span> = working &nbsp;·&nbsp;
+    <span class="err-mark">✗ red</span> = error (look at the message — usually it's a typo in config or security rules issue) &nbsp;·&nbsp;
+    blue = info / in-progress
+  </p>
+</div>
+
+<!-- Firebase SDKs (CDN, modular v10+) -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+let app = null, db = null, auth = null, unsub = null;
+
+function setStatus(id, msg, kind){
+  const el = document.getElementById(id);
+  el.className = 'status ' + (kind||'info');
+  el.textContent = msg;
+}
+
+window.initFirebase = function(){
+  const txt = document.getElementById('fb-config').value.trim();
+  if(!txt){ setStatus('init-status','Paste your firebaseConfig first.','err'); return; }
+  // Try to extract the object literal
+  let config = null;
+  try {
+    // Allow either "const firebaseConfig = {...};" or just "{...}"
+    let cleaned = txt.replace(/^(const|let|var)\s+\w+\s*=\s*/,'').replace(/;?\s*$/,'').trim();
+    // Use Function constructor since JSON.parse won't accept unquoted keys
+    config = (new Function('return ('+cleaned+')'))();
+  } catch(e){
+    setStatus('init-status','Could not parse the config: '+e.message+'\n\nMake sure you pasted the whole "const firebaseConfig = { ... };" block exactly as Firebase showed it.','err');
+    return;
+  }
+  if(!config || !config.apiKey || !config.projectId){
+    setStatus('init-status','Config missing apiKey or projectId. Did you copy the full snippet?','err');
+    return;
+  }
+  try {
+    app = initializeApp(config);
+    auth = getAuth(app);
+    db = getFirestore(app);
+    setStatus('init-status','✓ Firebase initialised.\nProject: '+config.projectId+'\nReady to authenticate.','ok');
+    document.getElementById('auth-btn').disabled = false;
+  } catch(e){
+    setStatus('init-status','Init failed: '+e.message,'err');
+  }
+};
+
+window.signInAnon = async function(){
+  if(!auth){ setStatus('auth-status','Init Firebase first.','err'); return; }
+  setStatus('auth-status','Signing in...','info');
+  try {
+    const cred = await signInAnonymously(auth);
+    setStatus('auth-status','✓ Signed in.\nUser ID (anonymous): '+cred.user.uid,'ok');
+    document.getElementById('write-btn').disabled = false;
+    document.getElementById('read-btn').disabled = false;
+    document.getElementById('sub-btn').disabled = false;
+  } catch(e){
+    let hint = '';
+    if(String(e.code).indexOf('admin-restricted-operation') >= 0 || String(e.message).indexOf('configuration-not-found') >= 0){
+      hint = '\n\nHINT: You probably forgot to ENABLE Anonymous sign-in in the Firebase console. Go to Authentication → Sign-in method → Anonymous → Enable.';
+    } else if(String(e.code).indexOf('api-key-not-valid') >= 0){
+      hint = '\n\nHINT: API key is wrong. Re-copy the config from Project settings → Your apps.';
+    }
+    setStatus('auth-status','Sign-in failed: '+(e.code||'')+' '+e.message+hint,'err');
+  }
+};
+
+window.writeTest = async function(){
+  if(!db){ setStatus('write-status','Init Firebase first.','err'); return; }
+  const val = document.getElementById('test-val').value || ('hello from '+new Date().toLocaleTimeString());
+  try {
+    setStatus('write-status','Writing...','info');
+    await setDoc(doc(db, 'state', 'test'), { value: val, updatedAt: serverTimestamp(), updatedBy: auth.currentUser ? auth.currentUser.uid.slice(0,8) : '?' });
+    setStatus('write-status','✓ Wrote to state/test:\nvalue = '+val+'\n\nGo to Firestore console (Build → Firestore Database) and you should see this in the "state" collection.','ok');
+  } catch(e){
+    let hint = '';
+    if(String(e.code).indexOf('permission-denied') >= 0){
+      hint = '\n\nHINT: Firestore security rules are blocking the write. Open Firestore → Rules and make sure they let authenticated users read/write. The basic rule for testing is:\n\nrules_version = "2";\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /{document=**} {\n      allow read, write: if request.auth != null;\n    }\n  }\n}';
+    }
+    setStatus('write-status','Write failed: '+(e.code||'')+' '+e.message+hint,'err');
+  }
+};
+
+window.readTest = async function(){
+  if(!db){ setStatus('read-status','Init Firebase first.','err'); return; }
+  try {
+    setStatus('read-status','Reading...','info');
+    const snap = await getDoc(doc(db, 'state', 'test'));
+    if(snap.exists()){
+      const data = snap.data();
+      setStatus('read-status','✓ Read state/test:\nvalue = '+(data.value||'(empty)')+'\nupdatedBy = '+(data.updatedBy||'?')+'\nupdatedAt = '+(data.updatedAt && data.updatedAt.toDate ? data.updatedAt.toDate().toLocaleString() : '?'),'ok');
+    } else {
+      setStatus('read-status','Document state/test does not exist yet. Click "Write to Firestore" first.','info');
+    }
+  } catch(e){
+    setStatus('read-status','Read failed: '+(e.code||'')+' '+e.message,'err');
+  }
+};
+
+window.startSubscribe = function(){
+  if(!db){ setStatus('sub-status','Init Firebase first.','err'); return; }
+  if(unsub){ unsub(); unsub=null; }
+  setStatus('sub-status','Subscribing...','info');
+  try {
+    unsub = onSnapshot(doc(db, 'state', 'test'), (snap) => {
+      const ts = new Date().toLocaleTimeString();
+      if(snap.exists()){
+        const d = snap.data();
+        setStatus('sub-status','✓ LIVE. Last update '+ts+':\nvalue = '+(d.value||'(empty)')+'\nupdatedBy = '+(d.updatedBy||'?'),'ok');
+      } else {
+        setStatus('sub-status','✓ LIVE. Document does not exist yet — write something to see it appear here.','info');
+      }
+    }, (err) => {
+      setStatus('sub-status','Subscription error: '+err.message,'err');
+    });
+    document.getElementById('unsub-btn').disabled = false;
+  } catch(e){
+    setStatus('sub-status','Subscribe failed: '+e.message,'err');
+  }
+};
+
+window.stopSubscribe = function(){
+  if(unsub){ unsub(); unsub=null; setStatus('sub-status','Subscription stopped.','info'); }
+  document.getElementById('unsub-btn').disabled = true;
+};
+</script>
+
+</body>
+</html>
