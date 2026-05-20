@@ -2939,6 +2939,24 @@ function fullRefresh(){
   if(typeof requestAnimationFrame === 'function') requestAnimationFrame(refresh);
 }
 
+// Used by applyCloudUpdate when a remote change arrives. Updates the parts of
+// the UI that don't contain user inputs (diagram dots, WIP counts, pool counts).
+// If the user is NOT focused in the detail panel, also refreshes that panel.
+// This keeps the diagram + machine counters always in sync, while preserving
+// focus when the user is typing into an inspection / picker form.
+function partialRefreshKeepingInputs(){
+  renderDots();
+  updateWIP();
+  updatePoolUI();
+  updateUndoButton();
+  // Re-render the detail panel only if the user isn't typing in it
+  var ae = document.activeElement;
+  var inDetail = ae && (ae.tagName === 'INPUT' || ae.tagName === 'SELECT' || ae.tagName === 'TEXTAREA') && ae.closest && ae.closest('#detail');
+  if(!inDetail){
+    refresh();
+  }
+}
+
 // Find the next available WSNEW-### id by scanning active WS, ARCHIVE, and any
 // in-progress wheelsets. Always pads to 3 digits (WSNEW-001, WSNEW-002, ...).
 function genWsNewId(){
@@ -6907,12 +6925,10 @@ function applyCloudUpdate(docName, data, isFirst){
     }
   }
   if(!isFirst){
-    // Skip the re-render if user is actively typing in an input — the cloud
-    // data is already updated in memory, and the next render (5s safety-net
-    // for viewers, or the user's next action for admins) will pick it up.
-    var ae = document.activeElement;
-    if(ae && (ae.tagName === 'INPUT' || ae.tagName === 'SELECT' || ae.tagName === 'TEXTAREA')) return;
-    fullRefresh();
+    // Always re-render the diagram dots, WIP counts, and pool counts so the
+    // overview stays in sync. The detail panel (which contains input forms)
+    // is only re-rendered if the user isn't actively typing in it.
+    partialRefreshKeepingInputs();
   }
   // Also fullRefresh on the FINAL initial snapshot so the UI reflects cloud state
   // immediately after first sync (otherwise the screen sticks on localStorage data
@@ -7435,19 +7451,15 @@ function bootApp(){
       // We use it to detect when WE've been kicked out of admin.
       window.Cloud.onAdminLockChange = handleAdminLockChange;
       updateConnectionIndicator();
-      // Safety-net auto-refresh for viewers: every 5 seconds, re-render the UI
-      // from the current in-memory state. This guarantees the screen stays
-      // in sync even if a snapshot callback was missed for any reason.
-      // Skipped for admins so it doesn't disrupt input forms.
-      // Also skipped while user has focus on an input/select/textarea so the
-      // refresh doesn't steal focus mid-typing (e.g. in the History tab search).
+      // Safety-net auto-refresh: every 5 seconds, re-render diagram dots + WIP counts
+      // from the current in-memory state. This guarantees the screen stays in sync
+      // even if a snapshot callback was missed for any reason.
+      // Uses partialRefreshKeepingInputs which preserves any input the user is
+      // currently typing into (so it's safe for admins too).
       setInterval(function(){
-        if(typeof USER_ROLE === 'undefined' || USER_ROLE !== 'viewer') return;
-        var ae = document.activeElement;
-        if(ae && (ae.tagName === 'INPUT' || ae.tagName === 'SELECT' || ae.tagName === 'TEXTAREA')) return;
-        // Skip if any modal is open (history details, role switcher, PIN gate, etc.)
+        // Skip if any blocking modal is open (history details, role switcher, PIN gate, etc.)
         if(document.querySelector('#role-switch-overlay, #pin-overlay, .modal-backdrop')) return;
-        try { fullRefresh(); } catch(e){}
+        try { partialRefreshKeepingInputs(); } catch(e){}
       }, 5000);
       // Watch for cloud-ready / error to show migration or error banner
       var readyTimer = setInterval(function(){
