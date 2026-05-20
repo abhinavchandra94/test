@@ -4743,7 +4743,7 @@ var Actions = {
       var outcomeLabel = decision === 'ok' ? 'OK' : (decision === 'ajtb' ? 'Needs AJTB' : 'Defective');
       ws.t = 'Insp-2 done · axle ' + outcomeLabel + ' · at ' + nextLabel;
       ws.d = 'just arrived';
-      logEvent(wsId, 'ins', 'Insp-2: axle ' + outcomeLabel + ' (journal ' + jd + ' mm, shoulder ' + sd + ' mm)', undoData);
+      logEvent(wsId, 'ins', 'Insp-2: axle ' + outcomeLabel + ' (Side A journal ' + jdA + ' mm, shoulder ' + sdA + ' mm; Side B journal ' + jdB + ' mm, shoulder ' + sdB + ' mm)', undoData);
       logEvent(wsId, 'adv', 'Advanced from '+oldLocLabel+' → '+nextLabel);
       toast(wsId + ' axle ' + outcomeLabel + ' · advanced to ' + nextLabel);
       fullRefresh();
@@ -5263,30 +5263,7 @@ document.addEventListener('click', function(e){
     var m = dot.getAttribute('data-m');
     var wsId = dot.getAttribute('data-ws');
     if(m){
-      // Open the machine's detail panel
-      document.querySelectorAll('.machine').forEach(function(x){x.classList.remove('active');});
-      document.querySelectorAll('.pool').forEach(function(x){x.classList.remove('sel');});
-      var machEl = document.querySelector('.machine[data-m="'+m+'"]');
-      if(machEl) machEl.classList.add('active');
-      currentView = {type:'machine', id: m};
-      // Reset all to collapsed, but keep the targeted one expanded so it's visible
-      EXPANDED = {};
-      if(wsId){ EXPANDED[wsId] = true; }
-      refresh();
-      // After render, scroll the specific wheelset card into view and highlight briefly
-      setTimeout(function(){
-        if(!wsId) return;
-        var cards = document.querySelectorAll('.card');
-        cards.forEach(function(c){
-          var cid = c.querySelector('.cid');
-          if(cid && cid.textContent.indexOf(wsId) >= 0){
-            c.scrollIntoView({behavior:'smooth', block:'center'});
-            c.style.transition = 'box-shadow .4s';
-            c.style.boxShadow = '0 0 0 3px #378ADD';
-            setTimeout(function(){ c.style.boxShadow = ''; }, 1500);
-          }
-        });
-      }, 50);
+      openWheelsetCard(wsId, m);
     }
     return;
   }
@@ -5983,9 +5960,14 @@ function runGlobalSearch(query){
     h += '<div class="sr-section"><div class="sr-section-ttl">Active wheelsets · '+wsHits.length+'</div>';
     wsHits.slice(0, 8).forEach(function(hit){
       var w = hit.ws;
-      h += '<div class="sr-row" data-srtype="ws" data-srid="'+hit.id+'">';
+      // For active wheelsets, the row itself is not clickable — clicks go to the
+      // two action buttons (Open the card, or History modal).
+      h += '<div class="sr-row" style="cursor:default">';
       h += '<div><div class="sr-id">'+hit.id+'</div><div class="sr-meta">Coach '+w.c+' · Bogie '+w.b+' · at '+(M_LABEL[w.loc]||w.loc)+'</div></div>';
-      h += '<div class="sr-meta">Active</div></div>';
+      h += '<div style="display:flex;gap:6px;align-items:center">';
+      h += '<button class="sr-act-btn" data-sract="openWs" data-srid="'+hit.id+'" style="background:#2563eb;color:#fff;border:0;padding:5px 10px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer">Open</button>';
+      h += '<button class="sr-act-btn" data-sract="historyWs" data-srid="'+hit.id+'" style="background:transparent;color:#475569;border:1px solid #cbd5e1;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer">History</button>';
+      h += '</div></div>';
     });
     h += '</div>';
   }
@@ -6475,6 +6457,44 @@ function ensureWsHistoryModal(){
   return m;
 }
 
+// Navigate the dashboard to a particular wheelset's machine and scroll its card
+// into view. Used by dot clicks and by the "Open" button in global search.
+// machineId is optional — if omitted, we read ws.loc.
+function openWheelsetCard(wsId, machineId){
+  var ws = WS[wsId];
+  if(!ws){
+    toast('Wheelset '+wsId+' is no longer active (dispatched or disassembled)', 'err');
+    return;
+  }
+  var m = machineId || ws.loc;
+  if(!m){ toast('Wheelset '+wsId+' has no current location', 'err'); return; }
+  // Switch to the Ops tab (it's possible user is on History/Analytics)
+  if(typeof switchTab === 'function'){ switchTab('ops'); }
+  // Select the machine on the diagram
+  document.querySelectorAll('.machine').forEach(function(x){x.classList.remove('active');});
+  document.querySelectorAll('.pool').forEach(function(x){x.classList.remove('sel');});
+  var machEl = document.querySelector('.machine[data-m="'+m+'"]');
+  if(machEl) machEl.classList.add('active');
+  currentView = {type:'machine', id: m};
+  // Collapse other cards, keep this one expanded
+  EXPANDED = {};
+  EXPANDED[wsId] = true;
+  refresh();
+  // Scroll the card into view and briefly highlight it
+  setTimeout(function(){
+    var cards = document.querySelectorAll('.card');
+    cards.forEach(function(c){
+      var cid = c.querySelector('.cid');
+      if(cid && cid.textContent.indexOf(wsId) >= 0){
+        c.scrollIntoView({behavior:'smooth', block:'center'});
+        c.style.transition = 'box-shadow .4s';
+        c.style.boxShadow = '0 0 0 3px #378ADD';
+        setTimeout(function(){ c.style.boxShadow = ''; }, 1500);
+      }
+    });
+  }, 50);
+}
+
 function openWheelsetHistory(wsId){
   var ws = WS[wsId] || ARCHIVE[wsId];
   if(!ws){ toast('Wheelset '+wsId+' not found', 'err'); return; }
@@ -6615,7 +6635,7 @@ function openWheelsetHistory(wsId){
   h += '<div class="sechd" style="margin-top:14px">'+componentsHeader+'</div>';
   if(componentsToShow){
     h += '<div style="border:1px solid #e2e8f0;border-radius:5px;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">';
-    h += '<thead><tr style="background:#f8fafc"><th style="text-align:left;padding:6px 10px;font-size:10px;color:#64748b;text-transform:uppercase">Position</th><th style="text-align:left;padding:6px 10px;font-size:10px;color:#64748b;text-transform:uppercase">Serial</th><th style="text-align:left;padding:6px 10px;font-size:10px;color:#64748b;text-transform:uppercase">Source</th><th style="text-align:left;padding:6px 10px;font-size:10px;color:#64748b;text-transform:uppercase">'+(isArchived?'Final measurement':'Note')+'</th></tr></thead><tbody>';
+    h += '<thead><tr style="background:#f8fafc"><th style="text-align:left;padding:6px 10px;font-size:10px;color:#64748b;text-transform:uppercase">Position</th><th style="text-align:left;padding:6px 10px;font-size:10px;color:#64748b;text-transform:uppercase">Serial</th><th style="text-align:left;padding:6px 10px;font-size:10px;color:#64748b;text-transform:uppercase">Source</th><th style="text-align:left;padding:6px 10px;font-size:10px;color:#64748b;text-transform:uppercase">'+(isArchived?'Final measurement':'Current measurement')+'</th></tr></thead><tbody>';
     ['axle','wheelA','wheelB','brakeA','brakeB','ctrbA','ctrbB'].forEach(function(pos){
       var c = componentsToShow[pos];
       h += '<tr><td style="padding:6px 10px;border-top:1px solid #f1f5f9">'+posLabels[pos]+'</td>';
@@ -6623,22 +6643,34 @@ function openWheelsetHistory(wsId){
         h += '<td colspan="3" style="padding:6px 10px;border-top:1px solid #f1f5f9;color:#94a3b8;font-style:italic">—</td></tr>';
         return;
       }
+      // Build measurement string from whatever fields are present.
+      // For axle, prefer per-side journal/shoulder, fall back to legacy single fields.
       var rightCol = '';
-      if(isArchived){
-        if(c.journalDia != null){
-          rightCol = c.journalDia+' mm (journal)';
-          if(c.shoulderDia != null) rightCol += ' · '+c.shoulderDia+' mm (shoulder)';
-        }
-        else if(c.dia != null) rightCol = c.dia+' mm (dia)';
-        else if(c.thickness != null) rightCol = c.thickness+' mm (thickness)';
-        else if(c.mountingDate) rightCol = c.mountingDate+' (mounted)';
-        else if(c.mfgDate) rightCol = c.mfgDate+' (mfg)';
-      } else {
-        rightCol = c.n || '';
+      if(pos === 'axle' && (c.journalDiaA != null || c.journalDiaB != null || c.shoulderDiaA != null || c.shoulderDiaB != null)){
+        var parts = [];
+        if(c.journalDiaA != null) parts.push('A: ' + c.journalDiaA + ' mm journal');
+        if(c.journalDiaB != null) parts.push('B: ' + c.journalDiaB + ' mm journal');
+        if(c.shoulderDiaA != null) parts.push('A: ' + c.shoulderDiaA + ' mm shoulder');
+        if(c.shoulderDiaB != null) parts.push('B: ' + c.shoulderDiaB + ' mm shoulder');
+        rightCol = parts.join(' · ');
       }
+      else if(c.journalDia != null){
+        rightCol = c.journalDia+' mm (journal)';
+        if(c.shoulderDia != null) rightCol += ' · '+c.shoulderDia+' mm (shoulder)';
+      }
+      else if(c.dia != null) rightCol = c.dia+' mm (dia)';
+      else if(c.thickness != null) rightCol = c.thickness+' mm (thickness)';
+      else if(c.mountingDate || c.mfgDate){
+        rightCol = (c.mountingDate || c.mfgDate) + (c.mountingDate ? ' (mounted)' : ' (mfg)');
+        if(c.lateralPlay != null) rightCol += ' · ' + c.lateralPlay + ' mm lat play';
+      } else if(c.lateralPlay != null){
+        rightCol = c.lateralPlay + ' mm lat play';
+      }
+      // Append any free-form note in muted text
+      if(c.n){ rightCol += (rightCol ? ' · ' : '') + c.n; }
       h += '<td style="padding:6px 10px;border-top:1px solid #f1f5f9;font-variant-numeric:tabular-nums;font-weight:600">'+escapeHtml(c.id||'—')+'</td>';
       h += '<td style="padding:6px 10px;border-top:1px solid #f1f5f9;color:#64748b">'+(c.t==='orig'||c.t==='here'?'arrived with WS':c.t==='new'?'new':c.t==='pool'?'from pool':c.t==='refurb'?'refurbished':c.t==='pnd'?'pending':c.t||'?')+'</td>';
-      h += '<td style="padding:6px 10px;border-top:1px solid #f1f5f9;'+(isArchived?'font-variant-numeric:tabular-nums':'color:#64748b')+'">'+escapeHtml(rightCol)+'</td></tr>';
+      h += '<td style="padding:6px 10px;border-top:1px solid #f1f5f9;font-variant-numeric:tabular-nums">'+escapeHtml(rightCol || '—')+'</td></tr>';
     });
     h += '</tbody></table></div>';
   }
@@ -6837,14 +6869,29 @@ if(searchInput){
 }
 if(searchResults){
   searchResults.addEventListener('click', function(e){
+    // First check for action buttons inside an active-ws row
+    var actBtn = e.target.closest('[data-sract]');
+    if(actBtn){
+      var sract = actBtn.getAttribute('data-sract');
+      var srid = actBtn.getAttribute('data-srid');
+      if(sract === 'openWs' && srid){
+        openWheelsetCard(srid);
+        searchResults.hidden = true;
+        searchInput.value = '';
+      } else if(sract === 'historyWs' && srid){
+        openWheelsetHistory(srid);
+        searchResults.hidden = true;
+        searchInput.value = '';
+      }
+      return;
+    }
     var row = e.target.closest('.sr-row');
     if(!row) return;
     var type = row.getAttribute('data-srtype');
     if(type === 'ws'){
       var wsId = row.getAttribute('data-srid');
-      // Open the wheelset history modal directly — full lifecycle in one place.
+      // Archived rows go straight to the history modal — they're not on the dashboard
       openWheelsetHistory(wsId);
-      // Hide the search dropdown
       searchResults.hidden = true;
     } else if(type === 'fitted' || type === 'pool' || type === 'lathe'){
       var serial = row.getAttribute('data-srcomp');
