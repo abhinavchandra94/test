@@ -836,11 +836,14 @@ window.Cloud = {
         var n = names[i];
         var json = JSON.stringify(queue[n]);
         self._lastChecksum[n] = self._hash(json);
+        var dataCount = queue[n] && typeof queue[n] === 'object' && !Array.isArray(queue[n]) ? Object.keys(queue[n]).length : (Array.isArray(queue[n]) ? queue[n].length : 0);
+        self._trace('WRITE ' + n + ' count=' + dataCount);
         await setDoc(doc(self._db, 'state', n), {data: queue[n], lastWriter: DEVICE_ID, updatedAt: serverTimestamp()});
         self.pendingWrites = Math.max(0, self.pendingWrites - 1);
         self._notify();
       }
     } catch(e){
+      self._trace('WRITE FAIL ' + e.message);
       self.err = 'Write failed: ' + e.message; self._notify();
     }
   },
@@ -854,6 +857,7 @@ window.Cloud = {
     }
     this._notify();
     if(!snap.exists()){
+      this._trace('SNAP ' + name + ' empty (isFirst=' + isFirst + ')');
       if(isFirst && this.onRemoteUpdate) this.onRemoteUpdate(name, null, true);
       return;
     }
@@ -861,11 +865,30 @@ window.Cloud = {
     var data = raw && raw.data;
     var writer = raw && raw.lastWriter;
     var isOwn = (writer === DEVICE_ID);
+    // Pending writes from this device's cache also count as own. Firestore exposes
+    // this via the snapshot metadata: snap.metadata.hasPendingWrites === true means
+    // our write hasn't yet been confirmed by the server.
+    var hasPending = snap.metadata && snap.metadata.hasPendingWrites;
+    var fromCache = snap.metadata && snap.metadata.fromCache;
+    var wsCount = (name === 'wheelsets' && data) ? Object.keys(data).length : null;
+    this._trace('SNAP ' + name + ' writer=' + (writer||'null').substring(0,12) + ' own=' + isOwn + ' pending=' + hasPending + ' cache=' + fromCache + (wsCount != null ? ' wsCount=' + wsCount : ''));
     // If THIS device wrote it, ignore the echo to avoid clobbering newer local
     // changes that may have happened between write and echo. We used to also
     // check a hash but Firestore can reorder keys, causing false mismatches.
     if(!isFirst && isOwn) return;
+    // Also skip if this snapshot is from local cache and has pending writes —
+    // it might be replaying an OLD cached state that hasn't been overwritten by
+    // the user's recent write yet.
+    if(!isFirst && fromCache && hasPending) return;
     if(this.onRemoteUpdate) this.onRemoteUpdate(name, data, isFirst);
+  },
+
+  // Sync trace ring buffer for diagnostics. Up to 100 entries.
+  _trace: function(msg){
+    if(!this._traceLog) this._traceLog = [];
+    var t = new Date().toISOString().substring(11, 23);
+    this._traceLog.push('[' + t + '] ' + msg);
+    if(this._traceLog.length > 100) this._traceLog.shift();
   },
 
   // ============== Admin lock support ==============
@@ -6822,6 +6845,11 @@ if(searchResults){
 // Apply a remote update from Firestore — called when another device pushes data
 function applyCloudUpdate(docName, data, isFirst){
   if(data == null) return;
+  // Trace into cloud diagnostics
+  if(window.Cloud && window.Cloud._trace){
+    var cnt = data && typeof data === 'object' && !Array.isArray(data) ? Object.keys(data).length : (Array.isArray(data) ? data.length : 0);
+    window.Cloud._trace('APPLY ' + docName + ' isFirst=' + isFirst + ' incoming=' + cnt + ' localBefore=' + (docName === 'wheelsets' ? Object.keys(WS).length : '-'));
+  }
   // Defensive — make sure top-level state vars are initialized
   if(typeof WS === 'undefined' || WS === null) WS = {};
   if(typeof POOL === 'undefined' || POOL === null) POOL = {ax:{r:[],n:[],c:[]},wd:{r:[],n:[],c:[]},bd:{r:[],n:[],c:[]},ct:{r:[],n:[],w:[],c:[]}};
@@ -7377,6 +7405,14 @@ function bootApp(){
         window.CloudErrors.forEach(function(e, i){
           info.push('  [' + (i+1) + '] ' + (e.msg||'') + (e.src ? ' @ ' + e.src.substring(e.src.lastIndexOf('/')+1) + ':' + e.line : ''));
         });
+      }
+      info.push('');
+      info.push('=== Recent sync trace (last 30) ===');
+      if(window.Cloud && window.Cloud._traceLog && window.Cloud._traceLog.length){
+        var tail = window.Cloud._traceLog.slice(-30);
+        tail.forEach(function(line){ info.push(line); });
+      } else {
+        info.push('(no trace events yet)');
       }
       info.push('');
       info.push('User agent: ' + navigator.userAgent.substring(0, 100));
