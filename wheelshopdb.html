@@ -861,8 +861,10 @@ window.Cloud = {
     var data = raw && raw.data;
     var writer = raw && raw.lastWriter;
     var isOwn = (writer === DEVICE_ID);
-    var sameAsLastWrite = (this._lastChecksum[name] === this._hash(JSON.stringify(data)));
-    if(!isFirst && (isOwn || sameAsLastWrite)) return;
+    // If THIS device wrote it, ignore the echo to avoid clobbering newer local
+    // changes that may have happened between write and echo. We used to also
+    // check a hash but Firestore can reorder keys, causing false mismatches.
+    if(!isFirst && isOwn) return;
     if(this.onRemoteUpdate) this.onRemoteUpdate(name, data, isFirst);
   },
 
@@ -6830,12 +6832,25 @@ function applyCloudUpdate(docName, data, isFirst){
   if(typeof ATL_WIP === 'undefined' || ATL_WIP === null) ATL_WIP = [];
   if(typeof VTL_WIP === 'undefined' || VTL_WIP === null) VTL_WIP = [];
   if(docName === 'wheelsets'){
+    // Protect wheelsets we registered in the very recent past (< 5 seconds ago).
+    // If a cloud snapshot arrives that's missing one of these, it's a stale echo
+    // from before our register write; preserve our local version.
+    var nowTs = Date.now();
+    var protectIds = {};
+    Object.keys(WS).forEach(function(id){
+      var w = WS[id];
+      if(w && w.arTs && (nowTs - w.arTs) < 5000 && !data[id]){
+        protectIds[id] = w;
+      }
+    });
     var changed = [];
     Object.keys(data).forEach(function(id){
       if(JSON.stringify(WS[id]) !== JSON.stringify(data[id])) changed.push(id);
     });
-    Object.keys(WS).forEach(function(id){ if(!data[id]) changed.push(id); });
+    Object.keys(WS).forEach(function(id){ if(!data[id] && !protectIds[id]) changed.push(id); });
     WS = data;
+    // Re-insert recently-added local ones that the snapshot was missing
+    Object.keys(protectIds).forEach(function(id){ WS[id] = protectIds[id]; });
     if(!isFirst && changed.length){ setTimeout(function(){ flashChangedCards(changed); }, 50); }
   } else if(docName === 'pools'){ POOL = data; }
   else if(docName === 'archive'){ ARCHIVE = data; }
