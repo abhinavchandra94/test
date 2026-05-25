@@ -13,11 +13,11 @@ button{font-family:inherit}
 
 .app{max-width:1400px;margin:0 auto;padding:16px}
 .app-header{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 20px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;margin-bottom:10px;flex-wrap:wrap}
-.brand{display:flex;align-items:center;gap:12px}
-.brand-mark{width:44px;height:44px;border-radius:6px;background:#fff;flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid #e2e8f0}
+.brand{display:flex;align-items:center;gap:14px}
+.brand-mark{width:60px;height:60px;border-radius:6px;background:#fff;flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid #e2e8f0}
 .brand-mark img{width:100%;height:100%;object-fit:contain}
-.brand h1{font-size:15px;font-weight:600;margin:0;letter-spacing:-.01em;color:#0f172a}
-.brand p{font-size:11px;color:#64748b;margin:1px 0 0;font-weight:500}
+.brand h1{font-size:19px;font-weight:700;margin:0;letter-spacing:-.01em;color:#0f172a}
+.brand p{font-size:12px;color:#64748b;margin:2px 0 0;font-weight:500}
 .meta{font-size:11px;color:#475569;display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums}
 .meta-sep{color:#cbd5e1}
 .status-dot{width:7px;height:7px;border-radius:50%;background:#059669;box-shadow:0 0 0 2px rgba(5,150,105,.15);animation:pulse 2s ease-in-out infinite}
@@ -528,22 +528,23 @@ body.viewer-mode #export-btn { display: inline-block; }  /* viewers may still ex
 </div>
 
 <div class="canvas">
-<svg viewBox="0 0 1080 320" role="img">
+<svg viewBox="0 0 1170 320" role="img">
   <!-- Main flow line -->
   <rect x="10" y="10" width="1060" height="180" fill="none" stroke="#cbd5e1" stroke-dasharray="4 3" rx="4"/>
   <text x="20" y="26" font-size="9" fill="#64748b" font-weight="600" letter-spacing=".06em">MAIN FLOW</text>
   <line x1="30" y1="38" x2="1050" y2="38" stroke="#cbd5e1" stroke-dasharray="3 2" opacity=".6"/>
 
-  <g class="machine" data-m="entry"><rect class="mbg" x="20" y="62" width="65" height="80" fill="#f8fafc" stroke="#94a3b8" stroke-width="1" rx="3"/><text x="52" y="84" text-anchor="middle" font-size="10" font-weight="600" fill="#0f172a">Entry</text><text x="52" y="97" text-anchor="middle" font-size="8" fill="#64748b">serial capture</text><text x="52" y="122" text-anchor="middle" font-size="8" fill="#64748b" letter-spacing=".5">WIP</text><text x="52" y="136" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a" class="wip-entry">0</text></g>
-  <g class="machine" data-m="cleaning"><rect class="mbg" x="100" y="62" width="70" height="80" fill="#f8fafc" stroke="#94a3b8" stroke-width="1" rx="3"/><text x="135" y="84" text-anchor="middle" font-size="10" font-weight="600" fill="#0f172a">Cleaning</text><text x="135" y="97" text-anchor="middle" font-size="8" fill="#64748b">degreasing</text><text x="135" y="122" text-anchor="middle" font-size="8" fill="#64748b" letter-spacing=".5">WIP</text><text x="135" y="136" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a" class="wip-cleaning">0</text></g>
-  <g class="machine" data-m="insp1"><rect class="mbg" x="185" y="62" width="80" height="80" fill="#fffbeb" stroke="#d97706" stroke-width="1" rx="3"/><text x="225" y="84" text-anchor="middle" font-size="10" font-weight="600" fill="#92400e">Inspection 1</text><text x="225" y="97" text-anchor="middle" font-size="8" fill="#b45309">case routing</text><text x="225" y="122" text-anchor="middle" font-size="8" fill="#b45309" letter-spacing=".5">WIP</text><text x="225" y="136" text-anchor="middle" font-size="13" font-weight="700" fill="#92400e" class="wip-insp1">0</text></g>
-  <g class="machine" data-m="ctrbDismount"><rect class="mbg" x="280" y="62" width="90" height="80" fill="#f8fafc" stroke="#94a3b8" stroke-width="1" rx="3"/><text x="325" y="84" text-anchor="middle" font-size="10" font-weight="600" fill="#0f172a">CTRB dismount</text><text x="325" y="97" text-anchor="middle" font-size="8" fill="#64748b">pull bearings</text><text x="325" y="122" text-anchor="middle" font-size="8" fill="#64748b" letter-spacing=".5">WIP</text><text x="325" y="136" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a" class="wip-ctrbDismount">0</text></g>
-  <g class="machine" data-m="insp2"><rect class="mbg" x="385" y="62" width="80" height="80" fill="#fffbeb" stroke="#d97706" stroke-width="1" rx="3"/><text x="425" y="84" text-anchor="middle" font-size="10" font-weight="600" fill="#92400e">Inspection 2</text><text x="425" y="97" text-anchor="middle" font-size="8" fill="#b45309">axle measure</text><text x="425" y="122" text-anchor="middle" font-size="8" fill="#b45309" letter-spacing=".5">WIP</text><text x="425" y="136" text-anchor="middle" font-size="13" font-weight="700" fill="#92400e" class="wip-insp2">0</text></g>
-  <g class="machine" data-m="wheelPress"><rect class="mbg" x="480" y="62" width="80" height="80" fill="#eff6ff" stroke="#2563eb" stroke-width="1.4" rx="3"/><text x="520" y="82" text-anchor="middle" font-size="10" font-weight="700" fill="#1e3a8a">Wheel press</text><text x="520" y="94" text-anchor="middle" font-size="8" fill="#1e40af">disasm + reasm</text><text x="520" y="122" text-anchor="middle" font-size="8" fill="#1e40af" letter-spacing=".5">WIP</text><text x="520" y="136" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a8a" class="wip-wheelPress">0</text></g>
-  <g class="machine" data-m="ajtb"><rect class="mbg" x="580" y="62" width="85" height="80" fill="#f8fafc" stroke="#94a3b8" stroke-width="1" rx="3"/><text x="622" y="84" text-anchor="middle" font-size="10" font-weight="600" fill="#0f172a">AJTB</text><text x="622" y="97" text-anchor="middle" font-size="8" fill="#64748b">on-axle journal</text><text x="622" y="122" text-anchor="middle" font-size="8" fill="#64748b" letter-spacing=".5">WIP</text><text x="622" y="136" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a" class="wip-ajtb">0</text></g>
-  <g class="machine" data-m="portalLathe"><rect class="mbg" x="685" y="62" width="80" height="80" fill="#f8fafc" stroke="#94a3b8" stroke-width="1" rx="3"/><text x="725" y="84" text-anchor="middle" font-size="10" font-weight="600" fill="#0f172a">Portal lathe</text><text x="725" y="97" text-anchor="middle" font-size="8" fill="#64748b">wheel profile</text><text x="725" y="122" text-anchor="middle" font-size="8" fill="#64748b" letter-spacing=".5">WIP</text><text x="725" y="136" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a" class="wip-portalLathe">0</text></g>
-  <g class="machine" data-m="ctrbMount"><rect class="mbg" x="785" y="62" width="90" height="80" fill="#f8fafc" stroke="#94a3b8" stroke-width="1" rx="3"/><text x="830" y="84" text-anchor="middle" font-size="10" font-weight="600" fill="#0f172a">CTRB mount</text><text x="830" y="97" text-anchor="middle" font-size="8" fill="#64748b">install bearings</text><text x="830" y="122" text-anchor="middle" font-size="8" fill="#64748b" letter-spacing=".5">WIP</text><text x="830" y="136" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a" class="wip-ctrbMount">0</text></g>
-  <g class="machine" data-m="dispatch"><rect class="mbg" x="895" y="62" width="80" height="80" fill="#f0fdf4" stroke="#059669" stroke-width="1" rx="3"/><text x="935" y="84" text-anchor="middle" font-size="10" font-weight="600" fill="#065f46">Dispatch</text><text x="935" y="97" text-anchor="middle" font-size="8" fill="#047857">FFS released</text><text x="935" y="122" text-anchor="middle" font-size="8" fill="#047857" letter-spacing=".5">WIP</text><text x="935" y="136" text-anchor="middle" font-size="13" font-weight="700" fill="#065f46" class="wip-dispatch">0</text></g>
+  <g class="machine" data-m="entry"><rect class="mbg" x="20" y="62" width="65" height="80" fill="#f8fafc" stroke="#94a3b8" stroke-width="1" rx="3"/><text x="52" y="84" text-anchor="middle" font-size="10" font-weight="600" fill="#0f172a">Entry</text><text x="52" y="122" text-anchor="middle" font-size="8" fill="#64748b" letter-spacing=".5">WIP</text><text x="52" y="136" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a" class="wip-entry">0</text></g>
+  <g class="machine" data-m="cleaning"><rect class="mbg" x="100" y="62" width="70" height="80" fill="#f8fafc" stroke="#94a3b8" stroke-width="1" rx="3"/><text x="135" y="84" text-anchor="middle" font-size="10" font-weight="600" fill="#0f172a">Cleaning</text><text x="135" y="122" text-anchor="middle" font-size="8" fill="#64748b" letter-spacing=".5">WIP</text><text x="135" y="136" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a" class="wip-cleaning">0</text></g>
+  <g class="machine" data-m="insp1"><rect class="mbg" x="185" y="62" width="80" height="80" fill="#fffbeb" stroke="#d97706" stroke-width="1" rx="3"/><text x="225" y="84" text-anchor="middle" font-size="10" font-weight="600" fill="#92400e">Inspection 1</text><text x="225" y="122" text-anchor="middle" font-size="8" fill="#b45309" letter-spacing=".5">WIP</text><text x="225" y="136" text-anchor="middle" font-size="13" font-weight="700" fill="#92400e" class="wip-insp1">0</text></g>
+  <g class="machine" data-m="ctrbDismount"><rect class="mbg" x="280" y="62" width="90" height="80" fill="#f8fafc" stroke="#94a3b8" stroke-width="1" rx="3"/><text x="325" y="84" text-anchor="middle" font-size="10" font-weight="600" fill="#0f172a">CTRB dismount</text><text x="325" y="122" text-anchor="middle" font-size="8" fill="#64748b" letter-spacing=".5">WIP</text><text x="325" y="136" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a" class="wip-ctrbDismount">0</text></g>
+  <g class="machine" data-m="insp2"><rect class="mbg" x="385" y="62" width="80" height="80" fill="#fffbeb" stroke="#d97706" stroke-width="1" rx="3"/><text x="425" y="84" text-anchor="middle" font-size="10" font-weight="600" fill="#92400e">Inspection 2</text><text x="425" y="122" text-anchor="middle" font-size="8" fill="#b45309" letter-spacing=".5">WIP</text><text x="425" y="136" text-anchor="middle" font-size="13" font-weight="700" fill="#92400e" class="wip-insp2">0</text></g>
+  <g class="machine" data-m="wheelPress"><rect class="mbg" x="480" y="62" width="80" height="80" fill="#eff6ff" stroke="#2563eb" stroke-width="1.4" rx="3"/><text x="520" y="82" text-anchor="middle" font-size="10" font-weight="700" fill="#1e3a8a">Wheel press</text><text x="520" y="122" text-anchor="middle" font-size="8" fill="#1e40af" letter-spacing=".5">WIP</text><text x="520" y="136" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a8a" class="wip-wheelPress">0</text></g>
+  <g class="machine" data-m="ajtb"><rect class="mbg" x="580" y="62" width="85" height="80" fill="#f8fafc" stroke="#94a3b8" stroke-width="1" rx="3"/><text x="622" y="84" text-anchor="middle" font-size="10" font-weight="600" fill="#0f172a">AJTB</text><text x="622" y="122" text-anchor="middle" font-size="8" fill="#64748b" letter-spacing=".5">WIP</text><text x="622" y="136" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a" class="wip-ajtb">0</text></g>
+  <g class="machine" data-m="portalLathe"><rect class="mbg" x="685" y="62" width="80" height="80" fill="#f8fafc" stroke="#94a3b8" stroke-width="1" rx="3"/><text x="725" y="84" text-anchor="middle" font-size="10" font-weight="600" fill="#0f172a">Portal lathe</text><text x="725" y="122" text-anchor="middle" font-size="8" fill="#64748b" letter-spacing=".5">WIP</text><text x="725" y="136" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a" class="wip-portalLathe">0</text></g>
+  <g class="machine" data-m="ctrbMount"><rect class="mbg" x="785" y="62" width="90" height="80" fill="#f8fafc" stroke="#94a3b8" stroke-width="1" rx="3"/><text x="830" y="84" text-anchor="middle" font-size="10" font-weight="600" fill="#0f172a">CTRB mount</text><text x="830" y="122" text-anchor="middle" font-size="8" fill="#64748b" letter-spacing=".5">WIP</text><text x="830" y="136" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a" class="wip-ctrbMount">0</text></g>
+  <g class="machine" data-m="insp3"><rect class="mbg" x="895" y="62" width="80" height="80" fill="#fffbeb" stroke="#d97706" stroke-width="1" rx="3"/><text x="935" y="84" text-anchor="middle" font-size="10" font-weight="600" fill="#92400e">Inspection 3</text><text x="935" y="122" text-anchor="middle" font-size="8" fill="#b45309" letter-spacing=".5">WIP</text><text x="935" y="136" text-anchor="middle" font-size="13" font-weight="700" fill="#92400e" class="wip-insp3">0</text></g>
+  <g class="machine" data-m="dispatch"><rect class="mbg" x="995" y="62" width="80" height="80" fill="#f0fdf4" stroke="#059669" stroke-width="1" rx="3"/><text x="1035" y="84" text-anchor="middle" font-size="10" font-weight="600" fill="#065f46">Dispatch</text><text x="1035" y="122" text-anchor="middle" font-size="8" fill="#047857" letter-spacing=".5">WIP</text><text x="1035" y="136" text-anchor="middle" font-size="13" font-weight="700" fill="#065f46" class="wip-dispatch">0</text></g>
 
   <!-- Connection arrows between main-flow stages -->
   <g fill="none" stroke="#94a3b8" stroke-width="0.9" opacity="0.7">
@@ -556,36 +557,35 @@ body.viewer-mode #export-btn { display: inline-block; }  /* viewers may still ex
     <path d="M 666 102 L 684 102 L 681 99 M 684 102 L 681 105"/>
     <path d="M 766 102 L 784 102 L 781 99 M 784 102 L 781 105"/>
     <path d="M 876 102 L 894 102 L 891 99 M 894 102 L 891 105"/>
+    <path d="M 976 102 L 994 102 L 991 99 M 994 102 L 991 105"/>
   </g>
 
-  <line x1="15" y1="172" x2="1065" y2="172" stroke="#94a3b8" stroke-width="1.1" opacity=".5"/>
-  <line x1="15" y1="176" x2="1065" y2="176" stroke="#94a3b8" stroke-width="1.1" opacity=".5"/>
+  <line x1="15" y1="172" x2="1155" y2="172" stroke="#94a3b8" stroke-width="1.1" opacity=".5"/>
+  <line x1="15" y1="176" x2="1155" y2="176" stroke="#94a3b8" stroke-width="1.1" opacity=".5"/>
 
   <!-- Off-line machines (ATL and VTL) — pool-fed, not in linear flow -->
-  <text x="20" y="218" font-size="9" fill="#64748b" font-weight="600" letter-spacing=".06em">OFF-LINE MACHINES (pool-fed)</text>
-  <line x1="30" y1="226" x2="1050" y2="226" stroke="#cbd5e1" stroke-dasharray="3 2" opacity=".6"/>
+  <text x="20" y="218" font-size="9" fill="#64748b" font-weight="600" letter-spacing=".06em">OFF-LINE MACHINES</text>
+  <line x1="30" y1="226" x2="1140" y2="226" stroke="#cbd5e1" stroke-dasharray="3 2" opacity=".6"/>
 
-  <g class="machine offline" data-m="axleLathe"><rect class="mbg" x="245" y="240" width="120" height="60" fill="#fff7ed" stroke="#ea580c" stroke-width="1" stroke-dasharray="3 2" rx="3"/><text x="305" y="258" text-anchor="middle" font-size="10" font-weight="600" fill="#9a3412">Axle Lathe (ATL)</text><text x="305" y="270" text-anchor="middle" font-size="8" fill="#c2410c">from axle pool · turn axles</text><text x="290" y="289" text-anchor="middle" font-size="8" fill="#c2410c" letter-spacing=".5">WIP</text><text x="318" y="291" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412" class="wip-axleLathe">0</text></g>
-  <g class="machine offline" data-m="vtl"><rect class="mbg" x="645" y="240" width="120" height="60" fill="#fff7ed" stroke="#ea580c" stroke-width="1" stroke-dasharray="3 2" rx="3"/><text x="705" y="258" text-anchor="middle" font-size="10" font-weight="600" fill="#9a3412">VTL</text><text x="705" y="270" text-anchor="middle" font-size="8" fill="#c2410c">from WD pool · turn discs</text><text x="690" y="289" text-anchor="middle" font-size="8" fill="#c2410c" letter-spacing=".5">WIP</text><text x="718" y="291" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412" class="wip-vtl">0</text></g>
+  <g class="machine offline" data-m="axleLathe"><rect class="mbg" x="245" y="240" width="120" height="60" fill="#fff7ed" stroke="#ea580c" stroke-width="1" stroke-dasharray="3 2" rx="3"/><text x="305" y="262" text-anchor="middle" font-size="10" font-weight="600" fill="#9a3412">Axle Lathe (ATL)</text><text x="290" y="289" text-anchor="middle" font-size="8" fill="#c2410c" letter-spacing=".5">WIP</text><text x="318" y="291" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412" class="wip-axleLathe">0</text></g>
+  <g class="machine offline" data-m="vtl"><rect class="mbg" x="645" y="240" width="120" height="60" fill="#fff7ed" stroke="#ea580c" stroke-width="1" stroke-dasharray="3 2" rx="3"/><text x="705" y="262" text-anchor="middle" font-size="10" font-weight="600" fill="#9a3412">VTL</text><text x="690" y="289" text-anchor="middle" font-size="8" fill="#c2410c" letter-spacing=".5">WIP</text><text x="718" y="291" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412" class="wip-vtl">0</text></g>
 
   <g id="ws-dots"></g>
 </svg>
 
 <div class="legend">
-  <span class="chip"><span class="sh" style="background:#2563eb;border-radius:50%"></span>at entry/dispatch</span>
-  <span class="chip"><span class="sh" style="background:#059669;border-radius:50%"></span>at machine</span>
-  <span class="chip"><span class="sh" style="background:#b45309;border-radius:50%"></span>disassembly phase</span>
-  <span class="chip"><span class="sh" style="background:#7c3aed;border-radius:50%"></span>reassembly phase</span>
-  <span class="chip">ATL/VTL pool-fed · click any machine or dot</span>
+  <span class="chip"><span class="sh" style="background:#3b82f6;border-radius:50%"></span>entry / cleaning</span>
+  <span class="chip"><span class="sh" style="background:#dc2626;border-radius:50%"></span>Case 1</span>
+  <span class="chip"><span class="sh" style="background:#eab308;border-radius:50%"></span>Case 2</span>
+  <span class="chip"><span class="sh" style="background:#86efac;border-radius:50%"></span>Case 3 / awaiting bearings</span>
+  <span class="chip"><span class="sh" style="background:#15803d;border-radius:50%"></span>Case 4 / bearings fitted</span>
+  <span class="chip"><span class="sh" style="background:#a855f7;border-radius:50%"></span>newly built</span>
 </div>
 </div>
 
 <div class="detail" id="detail">
   <div class="empty">
-    <strong>Click any machine</strong> to see wheelsets and status controls.<br>
-    <strong>Click a pool</strong> above to see inventory.<br>
-    <strong>+ Add wheelset</strong> to register a new arrival at Entry.<br><br>
-    <span class="tip">New flow:</span> Wheel Press now handles everything — pulls the old wheelset apart, sends axle to ATL, wheel discs to VTL, scraps bad brake discs, then pulls fresh components from the pools to build a new wheelset. No more splitting the wheelset across multiple stages.
+    Select a station or pool above.
   </div>
 </div>
 
@@ -597,6 +597,7 @@ body.viewer-mode #export-btn { display: inline-block; }  /* viewers may still ex
       <button class="h-mode-btn active" data-hmode="timeline">Wheelset timelines</button>
       <button class="h-mode-btn" data-hmode="events">Event log</button>
     </div>
+
     <div class="history-filters" id="h-filter-bar">
       <input type="search" id="h-search" placeholder="Search by wheelset, serial, message…" style="flex:1;min-width:220px"/>
       <label>Event type</label>
@@ -625,20 +626,19 @@ body.viewer-mode #export-btn { display: inline-block; }  /* viewers may still ex
   <div id="analytics-content"></div>
 </div>
 
-<footer class="app-footer">Self-contained · saved to browser · works offline</footer>
+<footer class="app-footer"></footer>
 
 </div>
 
 <div class="modal" id="modal">
   <div class="modal-box">
     <div class="modal-ttl">Register new wheelset</div>
-    <div class="modal-sub">all 7 component serials captured at Entry station</div>
     <div class="sechd">Identification</div>
     <div class="fg">
       <div class="fgr"><label class="flbl">Wheelset ID</label><input class="finp" id="f-ws" value="WS-1011"/></div>
       <div class="fgr"><label class="flbl">Coach</label><input class="finp" id="f-coach" placeholder="C-2411"/></div>
       <div class="fgr"><label class="flbl">Bogie</label><input class="finp" id="f-bogie" placeholder="B1"/></div>
-      <div class="fgr"><label class="flbl">Arrival</label><input class="finp" id="f-arr" value="Auto" readonly style="opacity:.6"/></div>
+      <div class="fgr"><label class="flbl">Arrival date</label><input class="finp" id="f-arr-date" type="date"/></div>
     </div>
     <div class="sechd">Components on arrival</div>
     <div class="fg">
@@ -666,6 +666,37 @@ body.viewer-mode #export-btn { display: inline-block; }  /* viewers may still ex
 
 <div class="modal" id="edit-ws-modal">
   <div class="modal-box" id="edit-ws-modal-content"></div>
+</div>
+
+<!-- Dispatch confirmation modal -->
+<div class="modal" id="dispatch-modal">
+  <div class="modal-box" style="max-width:480px">
+    <div class="modal-ttl">Certify FFS and dispatch</div>
+    <div class="modal-sub" id="dispatch-ws-label">Wheelset</div>
+    <div class="sechd">Dispatch details</div>
+    <div class="fg">
+      <div class="fgr">
+        <label class="flbl">Destination</label>
+        <select class="finp" id="f-dispatch-dest" data-act="onDispatchDestChange">
+          <option value="">— select —</option>
+          <option value="SS1">SS1</option>
+          <option value="SS3">SS3</option>
+          <option value="Division">Division</option>
+          <option value="Other">Other (specify)</option>
+        </select>
+      </div>
+      <div class="fgr" id="f-dispatch-other-wrap" style="display:none">
+        <label class="flbl">Specify destination</label>
+        <input class="finp" id="f-dispatch-other" placeholder="e.g. workshop name"/>
+      </div>
+      <div class="fgr"><label class="flbl">Bogie number</label><input class="finp" id="f-dispatch-bogie" placeholder="B1"/></div>
+      <div class="fgr"><label class="flbl">Date of dispatch</label><input class="finp" id="f-dispatch-date" type="date"/></div>
+    </div>
+    <div class="mbtns">
+      <button class="mbtn" data-act="closeDispatchModal" type="button">Cancel</button>
+      <button class="mbtn pri" data-act="confirmDispatchFFS" type="button">Confirm dispatch</button>
+    </div>
+  </div>
 </div>
 
 <!-- ===== Firebase cloud sync (v33) =================================== -->
@@ -1006,13 +1037,13 @@ var VIEWER_PIN = "0000";  // Read-only — sees live data but can't change anyth
 var USER_ROLE = 'viewer';
 
 // Main flow stages — ATL and VTL are now off-line, fed from pools, NOT in linear flow
-var M_ORDER = ['entry','cleaning','insp1','ctrbDismount','insp2','wheelPress','ajtb','portalLathe','ctrbMount','dispatch'];
+var M_ORDER = ['entry','cleaning','insp1','ctrbDismount','insp2','wheelPress','ajtb','portalLathe','ctrbMount','insp3','dispatch'];
 // All machines including off-line ones (ATL, VTL appear separately, not in linear progression)
-var M_ALL = ['entry','cleaning','insp1','ctrbDismount','insp2','wheelPress','ajtb','portalLathe','ctrbMount','dispatch','axleLathe','vtl'];
-var M_LABEL = {entry:'Entry',cleaning:'Cleaning',insp1:'Inspection-1',ctrbDismount:'CTRB Dismount',insp2:'Inspection-2',axleLathe:'Axle Lathe (ATL)',vtl:'VTL',wheelPress:'Wheel Press',ajtb:'AJTB',portalLathe:'Portal Lathe',ctrbMount:'CTRB Mount',dispatch:'Dispatch'};
-var M_SHORT = {entry:'Entry',cleaning:'Clean',insp1:'Insp-1',ctrbDismount:'CTRB↓',insp2:'Insp-2',axleLathe:'ATL',vtl:'VTL',wheelPress:'WP',ajtb:'AJTB',portalLathe:'Portal',ctrbMount:'CTRB↑',dispatch:'Dispatch'};
-// X coords for wheelset dots on the main 10-stage line
-var DOT_X = {entry:52,cleaning:135,insp1:225,ctrbDismount:325,insp2:425,wheelPress:520,ajtb:625,portalLathe:725,ctrbMount:830,dispatch:935};
+var M_ALL = ['entry','cleaning','insp1','ctrbDismount','insp2','wheelPress','ajtb','portalLathe','ctrbMount','insp3','dispatch','axleLathe','vtl'];
+var M_LABEL = {entry:'Entry',cleaning:'Cleaning',insp1:'Inspection-1',ctrbDismount:'CTRB Dismount',insp2:'Inspection-2',axleLathe:'Axle Lathe (ATL)',vtl:'VTL',wheelPress:'Wheel Press',ajtb:'AJTB',portalLathe:'Portal Lathe',ctrbMount:'CTRB Mount',insp3:'Inspection-3',dispatch:'Dispatch'};
+var M_SHORT = {entry:'Entry',cleaning:'Clean',insp1:'Insp-1',ctrbDismount:'CTRB↓',insp2:'Insp-2',axleLathe:'ATL',vtl:'VTL',wheelPress:'WP',ajtb:'AJTB',portalLathe:'Portal',ctrbMount:'CTRB↑',insp3:'Insp-3',dispatch:'Dispatch'};
+// X coords for wheelset dots on the main 11-stage line
+var DOT_X = {entry:52,cleaning:135,insp1:225,ctrbDismount:325,insp2:425,wheelPress:520,ajtb:622,portalLathe:725,ctrbMount:830,insp3:935,dispatch:1035};
 // X coords for off-line tiles (ATL and VTL stacked below)
 var DOT_X_OFFLINE = {axleLathe:280, vtl:680};
 
@@ -1035,6 +1066,7 @@ var M = {
   ajtb:{n:'AJTB machine',t:'Axle journal turning & burnishing on-axle (after WP)',op:'V. Rao'},
   portalLathe:{n:'Portal wheel lathe',t:'Wheel profile (tread + flange)',op:'T. Iyer'},
   ctrbMount:{n:'CTRB mounting',t:'Press bearings onto axle',op:'D. Patil'},
+  insp3:{n:'Inspection 3',t:'Final QC: lateral play · wheel dia · torque · paint · UST · ECA',op:'A. Singh'},
   dispatch:{n:'Dispatch bay',t:'Fit-for-service release',op:'J. Mehta'}
 };
 
@@ -1396,7 +1428,7 @@ function resetState(){
   if(!confirm('Reset all demo data?')) return;
   ['wst6_ws','wst6_pool','wst6_collapsed','wst6_expanded','wst6_globallog','wst6_shift','wst6_operators','wst6_archive','wst6_atl_wip','wst6_vtl_wip','wst6_complog'].forEach(function(k){ localStorage.removeItem(k); });
   SHIFT = 'B'; OPERATORS = {}; ARCHIVE = {}; ATL_WIP = []; VTL_WIP = []; EXPANDED = {}; COMPONENT_LOG = {};
-  var defaults = {entry:'R. Kumar',cleaning:'S. Verma',insp1:'A. Singh',ctrbDismount:'M. Yadav',insp2:'A. Singh',axleLathe:'K. Das',vtl:'N. Reddy',wheelPress:'P. Sharma',ajtb:'V. Rao',portalLathe:'T. Iyer',ctrbMount:'D. Patil',dispatch:'J. Mehta'};
+  var defaults = {entry:'R. Kumar',cleaning:'S. Verma',insp1:'A. Singh',ctrbDismount:'M. Yadav',insp2:'A. Singh',axleLathe:'K. Das',vtl:'N. Reddy',wheelPress:'P. Sharma',ajtb:'V. Rao',portalLathe:'T. Iyer',ctrbMount:'D. Patil',insp3:'A. Singh',dispatch:'J. Mehta'};
   Object.keys(defaults).forEach(function(k){ if(M[k]) M[k].op = defaults[k]; });
   loadState();
   fullRefresh();
@@ -1498,10 +1530,10 @@ function addToPool(pId, bucket, item){
 // Case-aware next stage. Takes the wheelset (not just its loc) to decide based on case code,
 // AJTB needs flag, and current location.
 // Routing rules:
-//   Case 1: insp1 → ctrbDismount → insp2 → wheelPress → (ajtb if needsAjtb else portalLathe) → portalLathe → ctrbMount → dispatch
-//   Case 2: insp1 → ctrbDismount → insp2 → wheelPress → (ajtb if needsAjtb) → portalLathe → ctrbMount → dispatch
-//   Case 3: insp1 → ctrbDismount → insp2 → (ajtb if needsAjtb) → portalLathe → ctrbMount → dispatch (skip WP)
-//   Case 4: insp1 → portalLathe → dispatch (skip ctrbDismount, insp2, WP, AJTB, CTRB Mount)
+//   Case 1: insp1 → ctrbDismount → insp2 → wheelPress → (ajtb if needsAjtb else portalLathe) → portalLathe → ctrbMount → insp3 → dispatch
+//   Case 2: insp1 → ctrbDismount → insp2 → wheelPress → (ajtb if needsAjtb) → portalLathe → ctrbMount → insp3 → dispatch
+//   Case 3: insp1 → ctrbDismount → insp2 → (ajtb if needsAjtb) → portalLathe → ctrbMount → insp3 → dispatch (skip WP)
+//   Case 4: insp1 → portalLathe → insp3 → dispatch (skip ctrbDismount, insp2, WP, AJTB, CTRB Mount)
 function nextStage(loc, ws){
   // Backward compat: if called with just loc string (older callsites), treat case as unknown → linear flow
   if(!ws){
@@ -1511,7 +1543,8 @@ function nextStage(loc, ws){
     if(loc === 'wheelPress') return 'ajtb';
     if(loc === 'ajtb') return 'portalLathe';
     if(loc === 'portalLathe') return 'ctrbMount';
-    if(loc === 'ctrbMount') return 'dispatch';
+    if(loc === 'ctrbMount') return 'insp3';
+    if(loc === 'insp3') return null; // Insp-3 cannot auto-advance — supervisor must apply
     var i = M_ORDER.indexOf(loc);
     if(i < 0 || i >= M_ORDER.length - 1) return null;
     return M_ORDER[i+1];
@@ -1522,10 +1555,13 @@ function nextStage(loc, ws){
   if(loc === 'cleaning') return 'insp1';
   // Insp-1 cannot auto-advance — supervisor must apply a case
   if(loc === 'insp1') return null;
+  // Insp-3 cannot auto-advance — supervisor must approve all checks
+  if(loc === 'insp3') return null;
 
   // Post-Insp-1 routing depends on case
   if(c === 4){
-    if(loc === 'portalLathe') return 'dispatch';
+    // Case 4: only Portal Lathe profiling. CTRBs were never dismounted, so skip CTRB Mount.
+    if(loc === 'portalLathe') return 'insp3';
     return 'portalLathe'; // Case 4 jumps directly to Portal from Insp-1
   }
   if(c === 1 || c === 2){
@@ -1534,25 +1570,19 @@ function nextStage(loc, ws){
     if(loc === 'wheelPress') return ws.needsAjtb ? 'ajtb' : 'portalLathe';
     if(loc === 'ajtb') return 'portalLathe';
     if(loc === 'portalLathe') return 'ctrbMount';
-    if(loc === 'ctrbMount') return 'dispatch';
+    if(loc === 'ctrbMount') return 'insp3';
   }
   if(c === 3){
     if(loc === 'ctrbDismount') return 'insp2';
-    // insp2 → next depends on outcome:
-    //   axleDefective → wheelPress (then Portal, no AJTB)
-    //   needsAjtb → ajtb (no WP)
-    //   ok → portalLathe (no WP, no AJTB)
     if(loc === 'insp2'){
       if(ws.axleDefective) return 'wheelPress';
       if(ws.needsAjtb) return 'ajtb';
       return 'portalLathe';
     }
-    // After WP (only reached when Case 3 + Defective): straight to Portal, skipping AJTB.
-    // The defective axle has been replaced from the pool, so AJTB is unnecessary.
     if(loc === 'wheelPress') return 'portalLathe';
     if(loc === 'ajtb') return 'portalLathe';
     if(loc === 'portalLathe') return 'ctrbMount';
-    if(loc === 'ctrbMount') return 'dispatch';
+    if(loc === 'ctrbMount') return 'insp3';
   }
   return null;
 }
@@ -1723,6 +1753,11 @@ function renderControls(wsId, ws){
     h += renderInsp2Panel(wsId, ws);
   }
 
+  // Inspection 3 — final QC checks before dispatch
+  if(ws.loc === 'insp3'){
+    h += renderInsp3Panel(wsId, ws);
+  }
+
   h += '<div class="actions">';
   if(ws.loc === 'insp1'){
     var cs = determineCase(ws);
@@ -1741,20 +1776,44 @@ function renderControls(wsId, ws){
     h += '<button class="abtn danger" data-act="condemnWS" data-ws="'+wsId+'">Condemn</button>';
   } else if(ws.loc === 'insp2'){
     // Insp-2 outcome buttons. Three options: OK, Needs AJTB, Defective.
-    // All four measurements required before any outcome can be recorded.
+    // All measurements (per-side journal/shoulder/ovality) required before any outcome.
     var i2 = ws.insp2 || {};
     // Migration support: accept legacy single-value fields as side A
     var jdA = i2.journalDiaA != null && i2.journalDiaA !== '' ? i2.journalDiaA : i2.journalDia;
     var sdA = i2.shoulderDiaA != null && i2.shoulderDiaA !== '' ? i2.shoulderDiaA : i2.shoulderDia;
     var jdB = i2.journalDiaB;
     var sdB = i2.shoulderDiaB;
-    var hasAllMeas = (jdA != null && jdA !== '') && (sdA != null && sdA !== '') && (jdB != null && jdB !== '') && (sdB != null && sdB !== '');
+    var ovA = i2.journalOvalityA;
+    var ovB = i2.journalOvalityB;
+    var hasAllMeas = (jdA != null && jdA !== '') && (sdA != null && sdA !== '') && (jdB != null && jdB !== '') && (sdB != null && sdB !== '') && (ovA != null && ovA !== '') && (ovB != null && ovB !== '');
     if(!hasAllMeas){
-      h += '<button class="abtn" disabled>Enter journal and shoulder dia for both sides first</button>';
+      h += '<button class="abtn" disabled>Enter journal, shoulder, and ovality for both sides first</button>';
     } else {
       h += '<button class="abtn pri" data-act="insp2Decide" data-ws="'+wsId+'" data-val="ok">OK · advance</button>';
       h += '<button class="abtn warn" data-act="insp2Decide" data-ws="'+wsId+'" data-val="ajtb">Needs AJTB · advance</button>';
       h += '<button class="abtn danger" data-act="insp2Decide" data-ws="'+wsId+'" data-val="defective">Defective · advance</button>';
+    }
+    h += '<button class="abtn pause" data-act="holdWS" data-ws="'+wsId+'">Hold</button>';
+  } else if(ws.loc === 'insp3'){
+    // Insp-3 final QC. Needs all checks filled before Apply unlocks.
+    var i3 = ws.insp3 || {};
+    var gateMissing = [];
+    // Numeric measurements: lateral play (A & B), wheel disc dia (A & B)
+    if(i3.lpA == null || i3.lpA === '') gateMissing.push('Bearing A lateral play');
+    if(i3.lpB == null || i3.lpB === '') gateMissing.push('Bearing B lateral play');
+    if(i3.wdA == null || i3.wdA === '') gateMissing.push('Wheel disc A dia');
+    if(i3.wdB == null || i3.wdB === '') gateMissing.push('Wheel disc B dia');
+    // OK/NotOk checks (default OK, so should always be set)
+    ['torque','paint','ust','eca'].forEach(function(k){
+      if(i3[k] !== 'ok' && i3[k] !== 'notok'){
+        var labels = {torque:'Torquing', paint:'Painting', ust:'UST', eca:'ECA'};
+        gateMissing.push(labels[k] + ' check');
+      }
+    });
+    if(gateMissing.length){
+      h += '<button class="abtn" disabled title="Missing: '+gateMissing.join(', ')+'">Complete all QC checks (' + gateMissing.length + ' remaining)</button>';
+    } else {
+      h += '<button class="abtn pri" data-act="insp3Apply" data-ws="'+wsId+'">Apply · advance to Dispatch</button>';
     }
     h += '<button class="abtn pause" data-act="holdWS" data-ws="'+wsId+'">Hold</button>';
   } else if(ws.loc === 'wheelPress'){
@@ -1863,7 +1922,7 @@ function determineCase(ws){
 
   // Case 4: all OK → Portal Lathe → Dispatch (skip CTRB Mount per spec)
   if(allOK){
-    return {allMarked:true, allMeasured:true, code:4, label:'Case 4 (all OK)', description:'All inspected components serviceable. Route: Portal Lathe → Dispatch.', nextStage:'Portal Lathe', nextStageId:'portalLathe'};
+    return {allMarked:true, allMeasured:true, code:4, label:'Case 4 (all OK)', description:'All inspected components serviceable. Route: Portal Lathe → Insp-3 → Dispatch.', nextStage:'Portal Lathe', nextStageId:'portalLathe'};
   }
   // Case 1: brake disc condemned → full overhaul
   if(anyBrakeDef){
@@ -1871,15 +1930,15 @@ function determineCase(ws){
     if(anyBrakeDef) notes.push('brake disc');
     if(anyWheelDef) notes.push('wheel disc');
     if(anyCtrbDef) notes.push('bearing');
-    return {allMarked:true, allMeasured:true, code:1, label:'Case 1 (full overhaul)', description:'Brake disc defective — full overhaul. Route: CTRB Dismount → Insp-2 → WP (full disasm + reasm) → AJTB? → Portal Lathe → CTRB Mount → Dispatch. Defects: '+notes.join(', ')+'.', nextStage:'CTRB Dismount', nextStageId:'ctrbDismount'};
+    return {allMarked:true, allMeasured:true, code:1, label:'Case 1 (full overhaul)', description:'Brake disc defective — full overhaul. Route: CTRB Dismount → Insp-2 → WP (full disasm + reasm) → AJTB? → Portal Lathe → CTRB Mount → Insp-3 → Dispatch. Defects: '+notes.join(', ')+'.', nextStage:'CTRB Dismount', nextStageId:'ctrbDismount'};
   }
   // Case 2: wheel disc defective (but brake discs OK)
   if(anyWheelDef){
-    return {allMarked:true, allMeasured:true, code:2, label:'Case 2 (wheel disc only)', description:'Wheel discs worn but brake discs OK. Route: CTRB Dismount → Insp-2 → WP (remove only wheel discs, keep brake discs on axle) → AJTB? → Portal Lathe → CTRB Mount → Dispatch.', nextStage:'CTRB Dismount', nextStageId:'ctrbDismount'};
+    return {allMarked:true, allMeasured:true, code:2, label:'Case 2 (wheel disc only)', description:'Wheel discs worn but brake discs OK. Route: CTRB Dismount → Insp-2 → WP (remove only wheel discs, keep brake discs on axle) → AJTB? → Portal Lathe → CTRB Mount → Insp-3 → Dispatch.', nextStage:'CTRB Dismount', nextStageId:'ctrbDismount'};
   }
   // Case 3: only CTRB defective
   if(anyCtrbDef){
-    return {allMarked:true, allMeasured:true, code:3, label:'Case 3 (CTRB only)', description:'Only bearings defective — wheel discs and brake discs stay on axle. Route: CTRB Dismount → Insp-2 → AJTB? → Portal Lathe → CTRB Mount → Dispatch (skip Wheel Press).', nextStage:'CTRB Dismount', nextStageId:'ctrbDismount'};
+    return {allMarked:true, allMeasured:true, code:3, label:'Case 3 (CTRB only)', description:'Only bearings defective — wheel discs and brake discs stay on axle. Route: CTRB Dismount → Insp-2 → AJTB? → Portal Lathe → CTRB Mount → Insp-3 → Dispatch (skip Wheel Press).', nextStage:'CTRB Dismount', nextStageId:'ctrbDismount'};
   }
   return {allMarked:true, allMeasured:true, code:4, label:'Case 4 (all OK)', description:'All serviceable.', nextStage:'Portal Lathe', nextStageId:'portalLathe'};
 }
@@ -1921,16 +1980,37 @@ function renderInspectionChecklist(wsId, ws){
       if(cfg.unit) h += '<span class="insp-attr-unit">'+cfg.unit+'</span>';
       // Condemn-limit hint removed per supervisor request.
       h += '</div>';
-      // For CTRBs, also collect lateral play of the bearing (per side).
-      // Stored on the component as `lateralPlay`. Required before Insp-1 can be applied.
+      // For CTRBs: lateral play + bearing make dropdown
       if(typeKey === 'ct'){
         var lpVal = comp.lateralPlay;
         var lpValAttr = (lpVal != null && lpVal !== '') ? ' value="'+lpVal+'"' : '';
         h += '<div class="insp-attr"><span>Lateral play:</span>';
         h += '<input type="number" step="0.01" placeholder="" '+lpValAttr+' data-act="inspLateralPlay" data-ws="'+wsId+'" data-comp="'+k+'"/>';
         h += '<span class="insp-attr-unit">mm</span></div>';
+        // Bearing make dropdown — Timken / SKF / NBC + Other
+        var bm = comp.bearingMake || '';
+        var isOtherSel = bm && ['Timken','SKF','NBC'].indexOf(bm) < 0;
+        h += '<div class="insp-attr"><span>Make:</span>';
+        h += '<select data-act="inspBearingMakeSelect" data-ws="'+wsId+'" data-comp="'+k+'">';
+        h += '<option value=""'+(bm===''?' selected':'')+'>—</option>';
+        h += '<option value="Timken"'+(bm==='Timken'?' selected':'')+'>Timken</option>';
+        h += '<option value="SKF"'+(bm==='SKF'?' selected':'')+'>SKF</option>';
+        h += '<option value="NBC"'+(bm==='NBC'?' selected':'')+'>NBC</option>';
+        h += '<option value="__other__"'+(isOtherSel?' selected':'')+'>Other…</option>';
+        h += '</select>';
+        // If "Other" is currently selected, also show a text field with the custom make
+        if(isOtherSel){
+          h += '<input type="text" placeholder="Custom make" value="'+escapeHtml(bm)+'" data-act="inspBearingMakeCustom" data-ws="'+wsId+'" data-comp="'+k+'" style="min-width:100px"/>';
+        }
+        h += '</div>';
       }
     }
+
+    // Remarks field for every component (optional). Stored as comp.remarks.
+    var rem = comp.remarks || '';
+    h += '<div class="insp-attr" style="flex-basis:100%"><span>Remarks:</span>';
+    h += '<input type="text" placeholder="(optional)" value="'+escapeHtml(rem)+'" data-act="inspRemarks" data-ws="'+wsId+'" data-comp="'+k+'" style="flex:1;min-width:120px"/>';
+    h += '</div>';
 
     h += '<div class="insp-toggle">';
     h += '<button class="insp-btn '+okCls+'" data-act="inspMark" data-ws="'+wsId+'" data-comp="'+k+'" data-val="ok">OK</button>';
@@ -1965,18 +2045,20 @@ function renderInsp2Panel(wsId, ws){
     i2.shoulderDiaA = i2.shoulderDia;
     delete i2.shoulderDia;
   }
-  // Ensure all four fields exist (as empty strings) so the inputs render predictably
+  // Ensure all fields exist (as empty strings) so the inputs render predictably
   if(i2.journalDiaA == null) i2.journalDiaA = '';
   if(i2.shoulderDiaA == null) i2.shoulderDiaA = '';
   if(i2.journalDiaB == null) i2.journalDiaB = '';
   if(i2.shoulderDiaB == null) i2.shoulderDiaB = '';
+  if(i2.journalOvalityA == null) i2.journalOvalityA = '';
+  if(i2.journalOvalityB == null) i2.journalOvalityB = '';
 
   var ax = ws.f.axle || {};
   var c = ws.case;
 
   var h = '<div class="insp-wrap">';
   h += '<div class="insp-ttl">Inspection 2 — axle measurement (post CTRB dismount)</div>';
-  h += '<div style="font-size:11px;color:#475569;margin-bottom:10px;line-height:1.5">With bearings off, measure the axle journal and shoulder on <b>both sides</b>. Then mark the axle as <b>OK</b>, <b>Needs AJTB</b>, or <b>Defective</b>. Routing then continues per Case '+(c||'?')+' rules.</div>';
+  h += '<div style="font-size:11px;color:#475569;margin-bottom:10px;line-height:1.5">With bearings off, measure journal, shoulder, and journal ovality on <b>both sides</b>. Then mark the axle as <b>OK</b>, <b>Needs AJTB</b>, or <b>Defective</b>. Routing then continues per Case '+(c||'?')+' rules.</div>';
   h += '<div class="insp-list">';
 
   // Side A
@@ -1987,6 +2069,9 @@ function renderInsp2Panel(wsId, ws){
   h += '<div class="insp-attr"><span>Shoulder dia:</span>';
   h += '<input type="number" step="0.1" placeholder="e.g. 160" value="'+(i2.shoulderDiaA||'')+'" data-act="insp2Attr" data-ws="'+wsId+'" data-comp="shoulderDiaA"/>';
   h += '<span class="insp-attr-unit">mm</span></div>';
+  h += '<div class="insp-attr"><span>Journal ovality:</span>';
+  h += '<input type="number" step="0.01" placeholder="e.g. 0.03" value="'+(i2.journalOvalityA||'')+'" data-act="insp2Attr" data-ws="'+wsId+'" data-comp="journalOvalityA"/>';
+  h += '<span class="insp-attr-unit">mm</span></div>';
   h += '</div>';
 
   // Side B
@@ -1996,6 +2081,9 @@ function renderInsp2Panel(wsId, ws){
   h += '<span class="insp-attr-unit">mm</span></div>';
   h += '<div class="insp-attr"><span>Shoulder dia:</span>';
   h += '<input type="number" step="0.1" placeholder="e.g. 160" value="'+(i2.shoulderDiaB||'')+'" data-act="insp2Attr" data-ws="'+wsId+'" data-comp="shoulderDiaB"/>';
+  h += '<span class="insp-attr-unit">mm</span></div>';
+  h += '<div class="insp-attr"><span>Journal ovality:</span>';
+  h += '<input type="number" step="0.01" placeholder="e.g. 0.03" value="'+(i2.journalOvalityB||'')+'" data-act="insp2Attr" data-ws="'+wsId+'" data-comp="journalOvalityB"/>';
   h += '<span class="insp-attr-unit">mm</span></div>';
   h += '</div>';
 
@@ -2019,6 +2107,88 @@ function renderInsp2Panel(wsId, ws){
   } else {
     h += '<div style="color:#64748b">Routing preview will appear once Case is confirmed at Inspection-1.</div>';
   }
+  h += '</div></div>';
+  return h;
+}
+
+// Final QC inspection performed after CTRB mounting (or after Portal Lathe for Case 4).
+// Captures bearing lateral play (per side), wheel disc dia (both wheels), and four
+// pass/fail checks (torquing, painting, UST, ECA), each with an optional remark.
+function renderInsp3Panel(wsId, ws){
+  if(!ws.insp3) ws.insp3 = {};
+  var i3 = ws.insp3;
+  // Default all OK/NotOk checks to "ok" so supervisors only have to flip the few that fail.
+  ['torque','paint','ust','eca'].forEach(function(k){
+    if(i3[k] !== 'ok' && i3[k] !== 'notok') i3[k] = 'ok';
+  });
+  // Ensure numeric fields exist as empty strings
+  if(i3.lpA == null) i3.lpA = '';
+  if(i3.lpB == null) i3.lpB = '';
+  if(i3.wdA == null) i3.wdA = '';
+  if(i3.wdB == null) i3.wdB = '';
+
+  var ctA = ws.f.ctrbA || {}, ctB = ws.f.ctrbB || {};
+  var wA = ws.f.wheelA || {}, wB = ws.f.wheelB || {};
+
+  var h = '<div class="insp-wrap">';
+  h += '<div class="insp-ttl">Inspection 3 — final QC checks before dispatch</div>';
+  h += '<div class="insp-list">';
+
+  // Bearing lateral play (per side)
+  h += '<div class="insp-row"><div class="insp-row-l"><span class="insp-comp">Bearing A · lateral play</span><span class="insp-ser">'+(ctA.id||'—')+'</span></div>';
+  h += '<div class="insp-attr"><span>Lateral play:</span>';
+  h += '<input type="number" step="0.01" placeholder="" value="'+(i3.lpA||'')+'" data-act="insp3Attr" data-ws="'+wsId+'" data-comp="lpA"/>';
+  h += '<span class="insp-attr-unit">mm</span></div>';
+  h += '<div class="insp-attr" style="flex-basis:100%"><span>Remarks:</span>';
+  h += '<input type="text" placeholder="(optional)" value="'+escapeHtml(i3.lpA_rem||'')+'" data-act="insp3Remark" data-ws="'+wsId+'" data-comp="lpA_rem" style="flex:1;min-width:120px"/>';
+  h += '</div></div>';
+
+  h += '<div class="insp-row"><div class="insp-row-l"><span class="insp-comp">Bearing B · lateral play</span><span class="insp-ser">'+(ctB.id||'—')+'</span></div>';
+  h += '<div class="insp-attr"><span>Lateral play:</span>';
+  h += '<input type="number" step="0.01" placeholder="" value="'+(i3.lpB||'')+'" data-act="insp3Attr" data-ws="'+wsId+'" data-comp="lpB"/>';
+  h += '<span class="insp-attr-unit">mm</span></div>';
+  h += '<div class="insp-attr" style="flex-basis:100%"><span>Remarks:</span>';
+  h += '<input type="text" placeholder="(optional)" value="'+escapeHtml(i3.lpB_rem||'')+'" data-act="insp3Remark" data-ws="'+wsId+'" data-comp="lpB_rem" style="flex:1;min-width:120px"/>';
+  h += '</div></div>';
+
+  // Wheel disc diameters (per wheel)
+  h += '<div class="insp-row"><div class="insp-row-l"><span class="insp-comp">Wheel disc A · dia</span><span class="insp-ser">'+(wA.id||'—')+'</span></div>';
+  h += '<div class="insp-attr"><span>Diameter:</span>';
+  h += '<input type="number" step="0.1" placeholder="" value="'+(i3.wdA||'')+'" data-act="insp3Attr" data-ws="'+wsId+'" data-comp="wdA"/>';
+  h += '<span class="insp-attr-unit">mm</span></div>';
+  h += '<div class="insp-attr" style="flex-basis:100%"><span>Remarks:</span>';
+  h += '<input type="text" placeholder="(optional)" value="'+escapeHtml(i3.wdA_rem||'')+'" data-act="insp3Remark" data-ws="'+wsId+'" data-comp="wdA_rem" style="flex:1;min-width:120px"/>';
+  h += '</div></div>';
+
+  h += '<div class="insp-row"><div class="insp-row-l"><span class="insp-comp">Wheel disc B · dia</span><span class="insp-ser">'+(wB.id||'—')+'</span></div>';
+  h += '<div class="insp-attr"><span>Diameter:</span>';
+  h += '<input type="number" step="0.1" placeholder="" value="'+(i3.wdB||'')+'" data-act="insp3Attr" data-ws="'+wsId+'" data-comp="wdB"/>';
+  h += '<span class="insp-attr-unit">mm</span></div>';
+  h += '<div class="insp-attr" style="flex-basis:100%"><span>Remarks:</span>';
+  h += '<input type="text" placeholder="(optional)" value="'+escapeHtml(i3.wdB_rem||'')+'" data-act="insp3Remark" data-ws="'+wsId+'" data-comp="wdB_rem" style="flex:1;min-width:120px"/>';
+  h += '</div></div>';
+
+  // OK/NotOk checks with optional remarks
+  var checks = [
+    {key:'torque', label:'Torquing check'},
+    {key:'paint', label:'Painting check'},
+    {key:'ust', label:'UST check (Ultrasonic)'},
+    {key:'eca', label:'ECA check (Eddy Current)'}
+  ];
+  checks.forEach(function(chk){
+    var state = i3[chk.key];
+    var okCls = state === 'ok' ? 'sel-ok' : '';
+    var nokCls = state === 'notok' ? 'sel-def' : '';
+    h += '<div class="insp-row"><div class="insp-row-l"><span class="insp-comp">'+chk.label+'</span></div>';
+    h += '<div class="insp-toggle">';
+    h += '<button class="insp-btn '+okCls+'" data-act="insp3Check" data-ws="'+wsId+'" data-comp="'+chk.key+'" data-val="ok">OK</button>';
+    h += '<button class="insp-btn '+nokCls+'" data-act="insp3Check" data-ws="'+wsId+'" data-comp="'+chk.key+'" data-val="notok">NotOk</button>';
+    h += '</div>';
+    h += '<div class="insp-attr" style="flex-basis:100%"><span>Remarks:</span>';
+    h += '<input type="text" placeholder="(optional)" value="'+escapeHtml(i3[chk.key+'_rem']||'')+'" data-act="insp3Remark" data-ws="'+wsId+'" data-comp="'+chk.key+'_rem" style="flex:1;min-width:120px"/>';
+    h += '</div></div>';
+  });
+
   h += '</div></div>';
   return h;
 }
@@ -2251,7 +2421,7 @@ function renderAddMaterialForm(pId){
 }
 
 function renderEmpty(){
-  return '<div class="empty"><strong>Select a station or pool</strong>Click any machine on the flow line above to view wheelsets and status controls, or click a pool to view inventory.</div>';
+  return '<div class="empty">Select a station or pool above.</div>';
 }
 
 // ========== HISTORY TAB ==========
@@ -2421,7 +2591,8 @@ function renderWsTimeline(wsId, ws, status){
   h += '</div>';
   h += '<div class="tl-ws-status">';
   if(status === 'dispatched' && ws.dispatchedAtStr){
-    h += '<span style="color:#64748b">Dispatched '+ws.dispatchedAtStr+'</span>';
+    var destLabel = ws.dispatchDest ? ' → '+escapeHtml(ws.dispatchDest) : '';
+    h += '<span style="color:#64748b">Dispatched '+ws.dispatchedAtStr+destLabel+'</span>';
   } else if(status === 'active'){
     h += '<span style="color:#64748b">At '+(M_LABEL[ws.loc]||ws.loc||'—')+'</span>';
   }
@@ -2815,6 +2986,82 @@ function renderAnalytics(){
 
   h += '</div>'; // end second an-cards-2
 
+  // ===== Monthly dispatched wheelsets by financial year =====
+  // Indian financial year: Apr 1 → Mar 31. The dispatch month is taken from
+  // ws.dispatchedAt (when set) or arTs as fallback for old data.
+  var dispatchedArr = [];
+  Object.keys(ARCHIVE).forEach(function(id){
+    var aw = ARCHIVE[id];
+    if(aw.disposition === 'disassembled') return; // only count successfully dispatched
+    var ts = aw.dispatchedAt || aw.arTs;
+    if(!ts) return;
+    dispatchedArr.push({id: id, ws: aw, ts: ts});
+  });
+  // Group by FY (Apr→Mar). FY label = "Apr YYYY – Mar YYYY+1".
+  function fyForTs(ts){
+    var d = new Date(ts);
+    var y = d.getFullYear(), m = d.getMonth(); // m: 0=Jan
+    return m >= 3 ? y : (y - 1); // Apr (m=3) onwards counts as that year's FY
+  }
+  // Build set of FYs we have data for; default selection is current FY
+  var fySet = {};
+  dispatchedArr.forEach(function(rec){ fySet[fyForTs(rec.ts)] = true; });
+  var now = new Date();
+  var currentFy = now.getMonth() >= 3 ? now.getFullYear() : (now.getFullYear() - 1);
+  fySet[currentFy] = true; // always offer the current FY even if empty
+  var fyList = Object.keys(fySet).map(Number).sort(function(a,b){return b - a;});
+  if(window._selectedDispatchFy == null || fyList.indexOf(window._selectedDispatchFy) < 0){
+    window._selectedDispatchFy = currentFy;
+  }
+  var selFy = window._selectedDispatchFy;
+
+  h += '<div class="an-cards" style="margin-top:14px"><div class="an-card" style="grid-column:1/-1">';
+  h += '<div class="an-card-hd"><span class="an-card-ttl">Dispatched wheelsets — monthly (FY '+selFy+'–'+(selFy+1)+')</span>';
+  h += '<span class="an-card-sub">';
+  h += '<label style="font-size:11px;color:#64748b;margin-right:6px">Select FY:</label>';
+  h += '<select data-act="selectDispatchFy" style="padding:5px 9px;font-size:11px;border-radius:4px;border:1px solid #cbd5e1;background:#fff;color:#0f172a;font-family:inherit;cursor:pointer;font-weight:500">';
+  fyList.forEach(function(fy){
+    var sel = fy === selFy ? ' selected' : '';
+    h += '<option value="'+fy+'"'+sel+'>FY '+fy+'–'+(fy+1).toString().slice(2)+'</option>';
+  });
+  h += '</select>';
+  h += '</span></div>';
+
+  // Count by Apr-Mar months for the selected FY
+  var monthNames = ['Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar'];
+  // monthMap[fyMonthIdx 0..11] = [ids dispatched that month]
+  var monthMap = [[],[],[],[],[],[],[],[],[],[],[],[]];
+  dispatchedArr.forEach(function(rec){
+    if(fyForTs(rec.ts) !== selFy) return;
+    var d = new Date(rec.ts);
+    var cal = d.getMonth(); // 0=Jan ... 11=Dec
+    var fyIdx = (cal + 9) % 12; // Apr(3) → 0, May(4) → 1, ... Mar(2) → 11
+    monthMap[fyIdx].push(rec);
+  });
+  var maxMonth = 1;
+  monthMap.forEach(function(arr){ if(arr.length > maxMonth) maxMonth = arr.length; });
+
+  // Render as a 12-column bar chart, each clickable
+  h += '<div style="display:grid;grid-template-columns:repeat(12,1fr);gap:6px;align-items:end;height:140px;padding:8px 4px;border:1px solid #e2e8f0;border-radius:5px;background:#f8fafc">';
+  monthMap.forEach(function(arr, idx){
+    var ct = arr.length;
+    var hPct = ct ? Math.max(6, (ct/maxMonth)*100) : 0;
+    var color = ct ? '#2563eb' : '#cbd5e1';
+    h += '<div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;cursor:'+(ct?'pointer':'default')+';" '+(ct?'data-act="openDispatchMonth" data-val="'+selFy+'_'+idx+'" title="Click to see '+ct+' wheelset(s)"':'')+'>';
+    h += '<div style="font-size:11px;font-weight:600;color:#0f172a;font-variant-numeric:tabular-nums;margin-bottom:2px">'+(ct||'')+'</div>';
+    h += '<div style="width:100%;background:'+color+';height:'+hPct+'%;border-radius:3px 3px 0 0;transition:opacity .15s" onmouseover="this.style.opacity=.7" onmouseout="this.style.opacity=1"></div>';
+    h += '</div>';
+  });
+  h += '</div>';
+  // Month labels
+  h += '<div style="display:grid;grid-template-columns:repeat(12,1fr);gap:6px;margin-top:5px">';
+  monthNames.forEach(function(m){ h += '<div style="text-align:center;font-size:10px;color:#64748b;font-weight:600">'+m+'</div>'; });
+  h += '</div>';
+
+  var totalForFy = monthMap.reduce(function(s, a){ return s + a.length; }, 0);
+  h += '<div style="font-size:11px;color:#475569;margin-top:8px"><b>Total dispatched in FY '+selFy+'–'+(selFy+1)+':</b> '+totalForFy+'</div>';
+  h += '</div></div>'; // end an-card + an-cards
+
   wrap.innerHTML = h;
 }
 
@@ -2849,45 +3096,120 @@ function doRefresh(){
   }
 }
 
+// v58 color coding by case (user spec):
+//   Case 1 = red, Case 2 = yellow, Case 3 = light green, Case 4 = dark green
+//   Entry, Cleaning (pre-Insp-1)                                 → blue
+//   Insp-1 → Insp-2 → WP disasm (cases assigned, awaiting reassembly)
+//       Case 1 red / Case 2 yellow / Case 3 light green / Case 4 dark green
+//   After WP reassembly / AJTB / Portal Lathe (Cases 1-3, bearings pending)
+//                                                                → light green
+//   CTRB Mount / Insp-3 / Dispatch (bearings fitted)             → dark green
+//   WSNEW wheelsets built at WP from pool                        → purple
+//   WSNEW after CTRB Mount                                       → dark green
+//   Case 4 throughout — bearings never removed, stays dark green
+function dotColors(ws){
+  var entryBlue = {fill:'#3b82f6', stroke:'#1e3a8a'};
+  var red       = {fill:'#dc2626', stroke:'#7f1d1d'};   // Case 1
+  var yellow    = {fill:'#eab308', stroke:'#713f12'};   // Case 2
+  var lightGreen= {fill:'#86efac', stroke:'#166534'};   // Case 3 / awaiting bearings
+  var darkGreen = {fill:'#15803d', stroke:'#052e16'};   // Case 4 / bearings fitted
+  var purple    = {fill:'#a855f7', stroke:'#581c87'};   // newly built (no bearings yet)
+
+  var caseColor = {1: red, 2: yellow, 3: lightGreen, 4: darkGreen};
+
+  // 1) Newly-built wheelsets from pool stay PURPLE until bearings mounted
+  if(ws.builtNew && (ws.loc === 'wheelPress' || ws.loc === 'ajtb' || ws.loc === 'portalLathe')){
+    return purple;
+  }
+  // 2) After CTRB Mount → bearings fitted → dark green (everyone, including new builds)
+  if(ws.loc === 'ctrbMount' || ws.loc === 'insp3' || ws.loc === 'dispatch'){
+    return darkGreen;
+  }
+  // 3) Pre-Insp-1: blue
+  if(ws.loc === 'entry' || ws.loc === 'cleaning' || !ws.case){
+    return entryBlue;
+  }
+  // 4) Case 4 wheelsets keep dark green throughout (bearings never removed)
+  if(ws.case === 4){
+    return darkGreen;
+  }
+  // 5) Cases 1-3 after WP reassembly, or in AJTB / Portal Lathe → light green
+  //    (assembled but bearings still pending)
+  if(ws.loc === 'wheelPress' && ws.wpPhase === 'reasm'){
+    return lightGreen;
+  }
+  if(ws.loc === 'portalLathe' || ws.loc === 'ajtb'){
+    return lightGreen;
+  }
+  // 6) Cases 1-3 from Insp-1 up to WP disasm: case color
+  if(caseColor[ws.case]){
+    return caseColor[ws.case];
+  }
+  return entryBlue;
+}
+
 function renderDots(){
   var g = document.getElementById('ws-dots');
   var html = '';
-  // Group wheelsets by machine location so we can stagger them
+  // Group wheelsets by machine location so we can cluster them
   var byMachine = {};
   for(var id in WS){
     var loc = WS[id].loc;
     if(!byMachine[loc]) byMachine[loc] = [];
     byMachine[loc].push(id);
   }
-  // Keep a stable order (by wheelset id)
+  // Stable order (by id)
   Object.keys(byMachine).forEach(function(loc){ byMachine[loc].sort(); });
+
+  // Concentric-ring cluster layout. Up to ~25 wheelsets per station fit nicely
+  // within a circle of radius ~22 px centered under the station box, without
+  // bleeding into adjacent station columns (which are ~95-100 px apart).
+  //   slot 0  → center dot
+  //   slots 1-6  → ring 1 (radius 11)
+  //   slots 7-18 → ring 2 (radius 20)
+  //   slots 19+  → ring 3 (radius 28)
+  // Each ring is rotated slightly so dots don't perfectly stack vertically.
+  function slotXY(idx){
+    if(idx === 0) return {dx: 0, dy: 0};
+    var rings = [
+      {n: 6,  r: 11, rot: -Math.PI/2},          // 6 dots starting at top
+      {n: 12, r: 20, rot: -Math.PI/2 + Math.PI/12}, // 12 dots offset by 15°
+      {n: 18, r: 28, rot: -Math.PI/2}            // 18 dots
+    ];
+    var consumed = 1;
+    for(var i = 0; i < rings.length; i++){
+      var ring = rings[i];
+      if(idx < consumed + ring.n){
+        var posInRing = idx - consumed;
+        var theta = ring.rot + (posInRing / ring.n) * Math.PI * 2;
+        return {dx: ring.r * Math.cos(theta), dy: ring.r * Math.sin(theta)};
+      }
+      consumed += ring.n;
+    }
+    // Fallback for absurdly many wheelsets — pack onto an outer arc
+    var extra = idx - consumed;
+    var theta = -Math.PI/2 + (extra / 24) * Math.PI * 2;
+    return {dx: 36 * Math.cos(theta), dy: 36 * Math.sin(theta)};
+  }
+
+  var baseY = 174;  // cluster center y — sits on the double horizontal line
 
   for(var loc in byMachine){
     var ids = byMachine[loc];
     var baseX = DOT_X[loc]; if(!baseX) continue;
-    var n = ids.length;
-    // Spacing: 13px between dots, centered around baseX. Max 6 dots per row
-    var spacing = 13;
-    var perRow = 6;
+
     ids.forEach(function(id, idx){
       var ws = WS[id];
-      var row = Math.floor(idx / perRow);
-      var col = idx % perRow;
-      var nInRow = Math.min(perRow, n - row*perRow);
-      var rowOffset = (col - (nInRow - 1) / 2) * spacing;
-      var x = baseX + rowOffset;
-      var y = 172 + row * 14;
+      var p = slotXY(idx);
+      var x = baseX + p.dx;
+      var y = baseY + p.dy;
 
-      var color = '#1D9E75', stroke = '#085041';
-      if(ws.loc === 'entry' || ws.loc === 'dispatch'){color='#378ADD';stroke='#0C447C';}
-      if(ws.loc === 'wheelPress'){
-        if(ws.wpPhase === 'disasm'){color='warn';stroke='#633806';}
-        else if(ws.wpPhase === 'reasm'){color='#7F77DD';stroke='#3C3489';}
-      }
+      var cols = dotColors(ws);
+      var color = cols.fill, stroke = cols.stroke;
+
+      // Clean dots — no inner text label. Full wheelset ID shown on hover via <title>.
       html += '<g class="wsdot" data-m="'+ws.loc+'" data-ws="'+id+'">';
-      html += '<circle cx="'+x+'" cy="'+y+'" r="5" fill="'+color+'" stroke="'+stroke+'" stroke-width=".6"/>';
-      // short label below dot with last 4 chars of id
-      html += '<text x="'+x+'" y="'+(y+11)+'" font-size="7" fill="'+stroke+'" text-anchor="middle" font-weight="500" style="pointer-events:none">'+id.replace('WS-','')+'</text>';
+      html += '<circle cx="'+x+'" cy="'+y+'" r="4.5" fill="'+color+'" stroke="'+stroke+'" stroke-width=".6"><title>'+id+'</title></circle>';
       html += '</g>';
     });
   }
@@ -3143,19 +3465,17 @@ function renderPicker(kind, wsId){
       var idEmpty = !proposedId || !proposedId.trim();
 
       h += '<div class="modal-ttl">Build new wheelset at WP — pick all 5 components</div>';
-      h += '<div class="modal-sub">Wheelset ID is auto-suggested but you can override it. CTRBs are mounted later at the CTRB Mount stage.</div>';
 
       // Editable ID input
       h += '<div style="margin-bottom:14px;padding:12px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:5px;font-size:12px">';
       h += '<div style="font-weight:600;color:#0f172a;margin-bottom:6px">Wheelset ID <span style="color:#dc2626">*</span></div>';
-      h += '<div style="font-size:11px;color:#64748b;margin-bottom:8px">Auto-suggested as the next available WSNEW-### number. You can edit this freely (any format like WS-2026-042, WSNEW-100, etc.). Must be unique.</div>';
+      h += '<div style="font-size:11px;color:#64748b;margin-bottom:8px">Must be unique.</div>';
       h += '<input type="text" placeholder="WSNEW-001" value="'+escapeHtml(proposedId||'')+'" data-act="setBuildWsId" style="width:100%;padding:8px;border:1px solid '+(idInUse||idEmpty?'#dc2626':'#cbd5e1')+';border-radius:4px;font-size:13px;font-family:inherit;font-variant-numeric:tabular-nums" />';
       if(idInUse) h += '<div style="font-size:10px;color:#dc2626;margin-top:4px">⚠ ID "'+escapeHtml(proposedId)+'" is already in use. Pick a different one.</div>';
       else if(idEmpty) h += '<div style="font-size:10px;color:#dc2626;margin-top:4px">⚠ ID cannot be empty.</div>';
       h += '</div>';
     } else {
       h += '<div class="modal-ttl">Reassemble '+wsId+' — '+caseLabel+'pick replacement components</div>';
-      h += '<div class="modal-sub">Only components removed during disassembly need to be picked. Click any row to select. Switch tabs to pick from New stock instead of Serviceable.</div>';
     }
 
     h += renderPickerSummary('reasm');
@@ -3250,7 +3570,6 @@ function renderPicker(kind, wsId){
     }
   } else if(kind === 'ctrb'){
     h += '<div class="modal-ttl">Mount bearings on '+wsId+'</div>';
-    h += '<div class="modal-sub">select 2 bearings from the pool · refurbished (FIFO) preferred, new stock available as fallback</div>';
 
     h += renderPickerSummary('ctrb');
 
@@ -3325,7 +3644,6 @@ function renderMachinePicker(poolId, machineId){
 
   var h = '';
   h += '<div class="modal-ttl">Send '+poolName+' to '+machineName+'</div>';
-  h += '<div class="modal-sub">pick one '+poolName+' from serviceable or new stock · after turning, output goes back to serviceable pool</div>';
   h += renderPickerSummary('machine');
 
   h += '<div class="pick-section"><div class="pick-sec-hd"><span class="pick-sec-ttl">Serviceable ('+POOL[poolId].r.length+')</span><span class="pick-sec-req">FIFO — oldest first</span></div>';
@@ -3350,7 +3668,6 @@ function renderEditWheelset(wsId){
   var ws = WS[wsId]; if(!ws) return;
   var h = '';
   h += '<div class="modal-ttl">Edit wheelset '+wsId+'</div>';
-  h += '<div class="modal-sub">modify identification or any component serial / technical attribute · all changes logged to history</div>';
 
   h += '<div class="sechd">Identification</div>';
   h += '<div class="fg">';
@@ -3816,9 +4133,9 @@ var Actions = {
       }
     }
     saveState();
-    // Don't do full refresh on every keystroke — only update the input colour class
-    // Re-render to update suggested case hint
-    refresh();
+    // Don't re-render — re-rendering destroys the focused input and breaks Tab key
+    // navigation between fields. The "suggested case" hint will update on next
+    // user action (mark OK/Defective, click Apply, etc.).
   },
 
   // Capture lateral play of a CTRB at Inspection-1. Stored on the component as `lateralPlay`.
@@ -3841,7 +4158,152 @@ var Actions = {
       }
     }
     saveState();
+    // No re-render — preserves focus + Tab navigation
+  },
+  // When __other__ is chosen, the UI re-renders with a text input for the custom make.
+  inspBearingMakeSelect: function(wsId, extra){
+    var ws = WS[wsId]; if(!ws) return;
+    var comp = ws.f[extra.comp]; if(!comp) return;
+    var v = extra.val;
+    if(v === '' || v == null){
+      delete comp.bearingMake;
+    } else if(v === '__other__'){
+      // Don't store yet — let user type the custom name. Mark with a sentinel so the
+      // render shows the text input.
+      comp.bearingMake = comp.bearingMake && ['Timken','SKF','NBC'].indexOf(comp.bearingMake) < 0
+        ? comp.bearingMake
+        : 'Other'; // placeholder until they type
+    } else {
+      comp.bearingMake = v;
+    }
+    saveState();
     refresh();
+  },
+
+  // Free-text bearing make (when "Other" was selected)
+  inspBearingMakeCustom: function(wsId, extra){
+    var ws = WS[wsId]; if(!ws) return;
+    var comp = ws.f[extra.comp]; if(!comp) return;
+    var v = (extra.val || '').trim();
+    if(v === ''){ delete comp.bearingMake; } else { comp.bearingMake = v; }
+    saveState();
+    // Don't refresh — would lose focus mid-typing. The next render picks up the value.
+  },
+
+  // Free-text remarks per component (Insp-1)
+  inspRemarks: function(wsId, extra){
+    var ws = WS[wsId]; if(!ws) return;
+    var comp = ws.f[extra.comp]; if(!comp) return;
+    var v = (extra.val || '').trim();
+    if(v === ''){ delete comp.remarks; } else { comp.remarks = v; }
+    saveState();
+    // Don't refresh — would lose focus mid-typing
+  },
+
+  // ===== Inspection 3 handlers =====
+  // Numeric measurement at Insp-3 (lateral play A/B, wheel dia A/B).
+  // No re-render — preserves Tab navigation between inputs.
+  insp3Attr: function(wsId, extra){
+    var ws = WS[wsId]; if(!ws) return;
+    if(!ws.insp3) ws.insp3 = {};
+    var raw = extra.val;
+    if(raw === '' || raw == null){
+      delete ws.insp3[extra.comp];
+    } else {
+      var n = parseFloat(raw);
+      if(isNaN(n)) return;
+      ws.insp3[extra.comp] = n;
+    }
+    saveState();
+    // No refresh — gating updates on next user action
+  },
+
+  // OK/NotOk toggle for Insp-3 checks (torquing, painting, UST, ECA).
+  insp3Check: function(wsId, extra){
+    var ws = WS[wsId]; if(!ws) return;
+    if(!ws.insp3) ws.insp3 = {};
+    if(extra.val !== 'ok' && extra.val !== 'notok') return;
+    ws.insp3[extra.comp] = extra.val;
+    saveState();
+    refresh();
+  },
+
+  // Free-text remarks per Insp-3 parameter (optional).
+  insp3Remark: function(wsId, extra){
+    var ws = WS[wsId]; if(!ws) return;
+    if(!ws.insp3) ws.insp3 = {};
+    var v = (extra.val || '').trim();
+    if(v === ''){ delete ws.insp3[extra.comp]; } else { ws.insp3[extra.comp] = v; }
+    saveState();
+    // No refresh — preserves focus
+  },
+
+  // Apply Insp-3: validate all fields present, then advance to Dispatch.
+  insp3Apply: function(wsId){
+    var ws = WS[wsId]; if(!ws) return;
+    var i3 = ws.insp3 || {};
+    // Re-check (same gating as in render)
+    var missing = [];
+    if(i3.lpA == null || i3.lpA === '') missing.push('Bearing A lateral play');
+    if(i3.lpB == null || i3.lpB === '') missing.push('Bearing B lateral play');
+    if(i3.wdA == null || i3.wdA === '') missing.push('Wheel disc A dia');
+    if(i3.wdB == null || i3.wdB === '') missing.push('Wheel disc B dia');
+    ['torque','paint','ust','eca'].forEach(function(k){
+      if(i3[k] !== 'ok' && i3[k] !== 'notok'){
+        var labels = {torque:'Torquing', paint:'Painting', ust:'UST', eca:'ECA'};
+        missing.push(labels[k] + ' check');
+      }
+    });
+    if(missing.length){ toast('Missing: ' + missing.join(', '), 'warn'); return; }
+
+    // Warn if any check is NotOk — supervisor should confirm
+    var failures = [];
+    var labels = {torque:'Torquing', paint:'Painting', ust:'UST', eca:'ECA'};
+    ['torque','paint','ust','eca'].forEach(function(k){
+      if(i3[k] === 'notok') failures.push(labels[k]);
+    });
+
+    var msg = 'Final QC summary:\n' +
+      '  Bearing A lateral play: ' + i3.lpA + ' mm' + (i3.lpA_rem ? ' — ' + i3.lpA_rem : '') + '\n' +
+      '  Bearing B lateral play: ' + i3.lpB + ' mm' + (i3.lpB_rem ? ' — ' + i3.lpB_rem : '') + '\n' +
+      '  Wheel disc A dia: ' + i3.wdA + ' mm' + (i3.wdA_rem ? ' — ' + i3.wdA_rem : '') + '\n' +
+      '  Wheel disc B dia: ' + i3.wdB + ' mm' + (i3.wdB_rem ? ' — ' + i3.wdB_rem : '') + '\n' +
+      '  Torquing: ' + (i3.torque||'?').toUpperCase() + (i3.torque_rem ? ' — ' + i3.torque_rem : '') + '\n' +
+      '  Painting: ' + (i3.paint||'?').toUpperCase() + (i3.paint_rem ? ' — ' + i3.paint_rem : '') + '\n' +
+      '  UST: ' + (i3.ust||'?').toUpperCase() + (i3.ust_rem ? ' — ' + i3.ust_rem : '') + '\n' +
+      '  ECA: ' + (i3.eca||'?').toUpperCase() + (i3.eca_rem ? ' — ' + i3.eca_rem : '') + '\n';
+    if(failures.length){
+      msg += '\n⚠ ' + failures.length + ' check(s) marked NotOk: ' + failures.join(', ') + '.\nAdvance to Dispatch anyway?';
+    } else {
+      msg += '\nAll checks passed. Advance to Dispatch?';
+    }
+
+    confirmAct({
+      title: 'Apply Inspection-3',
+      message: msg,
+      confirmLabel: 'Yes, advance to Dispatch',
+      danger: failures.length > 0
+    }, function(){
+      var undoData = {
+        kind: 'insp3Apply',
+        wsId: wsId,
+        oldLoc: ws.loc,
+        oldT: ws.t
+      };
+      var summary = 'Insp-3 complete · LP A ' + i3.lpA + ', LP B ' + i3.lpB +
+        ' · WD A ' + i3.wdA + ', WD B ' + i3.wdB +
+        ' · Torque ' + (i3.torque||'?').toUpperCase() + ', Paint ' + (i3.paint||'?').toUpperCase() +
+        ', UST ' + (i3.ust||'?').toUpperCase() + ', ECA ' + (i3.eca||'?').toUpperCase();
+      if(failures.length) summary += ' (failures: ' + failures.join(', ') + ')';
+
+      logEvent(wsId, 'ins', summary, undoData);
+      ws.loc = 'dispatch';
+      ws.t = 'Insp-3 complete · ready for FFS release';
+      ws.d = 'just arrived';
+      logEvent(wsId, 'adv', 'Advanced from Inspection-3 → Dispatch');
+      toast(wsId + ' advanced to Dispatch');
+      fullRefresh();
+    });
   },
 
   inspectApply: function(wsId){
@@ -4024,27 +4486,36 @@ var Actions = {
 
       ws.wpPhase = 'disasm';
       ws.d = 'disassembly done';
-      if(fullDisasm){
-        // Full disasm: nothing left on the wheelset that's worth tracking. Retire it.
-        // Components have already been pushed to pools above. Mark the wheelset with a
-        // disassembly snapshot, archive it, and remove from active list. Supervisor can
-        // build a new WSNEW wheelset later via the WP "Build new" button.
+      // Production-number-retirement rule:
+      //   The wheelset's production number is only discarded when the AXLE is
+      //   condemned. Brake-disc or wheel-disc condemnation alone does NOT
+      //   retire the production number — the wheelset keeps its identity and
+      //   gets new components from the pool at reassembly.
+      if(axleDef){
+        // Axle is condemned → wheelset identity is retired. The condemned axle
+        // is already in the condemned pool; other components (wheels, brakes)
+        // were sent to serviceable pools above and can be picked up by other
+        // wheelsets. Supervisor builds a new WSNEW from pool when needed.
         ws.disassembledAt = Date.now();
         ws.disassembledAtStr = now();
         ws.disposition = 'disassembled';
         ws.totalDwellMs = ws.disassembledAt - (ws.arTs || ws.disassembledAt);
-        // Remember the dispatch-equivalent snapshot for archive
         ws.dispatchSnapshot = JSON.parse(JSON.stringify(ws.f));
-        // The undoData already contains the full pre-disasm WS snapshot (from above)
-        // so we just need to extend its kind so applyUndo knows to restore from ARCHIVE.
         undoData.kind = 'wpDisassembleFull';
         undoData.archivedSnapshot = JSON.parse(JSON.stringify(ws));
         ARCHIVE[wsId] = JSON.parse(JSON.stringify(ws));
         delete WS[wsId];
         delete EXPANDED[wsId];
-        var msgFull = 'WP disassembly complete · '+ws.wpDisasmList.length+' components → pools · '+wsId+' RETIRED to history';
-        logEvent(wsId, 'dis', msgFull, undoData);
-        toast(wsId + ' fully disassembled · components in pools · wheelset retired', 'warn');
+        var msgRetired = 'Axle CONDEMNED · '+ws.wpDisasmList.length+' components → pools · '+wsId+' RETIRED (production number discarded)';
+        logEvent(wsId, 'dis', msgRetired, undoData);
+        toast(wsId + ' retired · axle condemned · production number discarded', 'warn');
+      } else if(fullDisasm){
+        // Full disassembly (Case 1) but axle is OK — wheelset keeps its identity.
+        // Brake discs / wheel discs that were condemned (or simply worn) are in
+        // pools; replacement components need to be picked at reassembly.
+        ws.t = 'Disassembled (Case '+c+') · axle OK · pick replacement components to reassemble';
+        logEvent(wsId, 'dis', 'WP disassembly complete · '+ws.wpDisasmList.length+' components → pools · production number KEPT (axle is OK)', undoData);
+        toast(wsId + ' disassembled · production number kept (axle OK)');
       } else {
         // Partial disasm (Case 2 OK/AJTB): wheelset keeps its identity, advances to reasm.
         ws.t = 'Disassembled (Case '+c+'). Pick replacement wheel discs to reassemble.';
@@ -4353,7 +4824,8 @@ var Actions = {
         f: JSON.parse(JSON.stringify(initF)),
         arrivalSnapshot: JSON.parse(JSON.stringify(initF)),
         log: [],
-        isNewBuild: true
+        isNewBuild: true,
+        builtNew: true  // flag for dot color (purple) until bearings are mounted at CTRB Mount
       };
 
       // Build undo data — the whole creation can be undone by deleting the WS and returning
@@ -4623,13 +5095,8 @@ var Actions = {
     if(extra && extra.comp){
       ws.insp2[extra.comp] = extra.val;
       saveState();
-      // Re-render to update color cls and decision summary; preserve focus
-      var focusId = document.activeElement ? document.activeElement.getAttribute('data-comp') : null;
-      refresh();
-      if(focusId){
-        var el = document.querySelector('[data-act="insp2Attr"][data-comp="'+focusId+'"]');
-        if(el) el.focus();
-      }
+      // No re-render — re-rendering destroys the input and breaks Tab navigation.
+      // The Apply button gating updates on the next non-input action.
     }
   },
 
@@ -4856,6 +5323,76 @@ var Actions = {
     if(m) m.classList.remove('on');
   },
 
+  // Change the financial year shown on the monthly dispatch chart in Analytics.
+  selectDispatchFy: function(_, extra){
+    var v = parseInt(extra && extra.val);
+    if(isNaN(v)) return;
+    window._selectedDispatchFy = v;
+    renderAnalytics();
+  },
+
+  // Open a modal listing every wheelset dispatched in a particular FY month.
+  // extra.val is "<fy>_<monthIdx>" where monthIdx is 0..11 with 0 = April.
+  openDispatchMonth: function(_, extra){
+    var v = (extra && extra.val) || '';
+    var parts = v.split('_');
+    if(parts.length !== 2) return;
+    var fy = parseInt(parts[0]), idx = parseInt(parts[1]);
+    if(isNaN(fy) || isNaN(idx)) return;
+    var monthNames = ['Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar'];
+    var calMonth = (idx + 3) % 12; // 0=Apr → calendar 3, ... 11=Mar → calendar 2
+    var calYear = idx <= 8 ? fy : (fy + 1); // Apr-Dec belong to FY year; Jan-Mar belong to next calendar year
+
+    // Build the list of wheelsets dispatched that month
+    var rows = [];
+    Object.keys(ARCHIVE).forEach(function(id){
+      var aw = ARCHIVE[id];
+      if(aw.disposition === 'disassembled') return;
+      var ts = aw.dispatchedAt || aw.arTs;
+      if(!ts) return;
+      var d = new Date(ts);
+      if(d.getFullYear() === calYear && d.getMonth() === calMonth){
+        rows.push({id:id, ws:aw, ts:ts});
+      }
+    });
+    rows.sort(function(a,b){ return a.ts - b.ts; });
+
+    // Reuse the wheelset-history modal infrastructure for the popup
+    var modal = ensureWsHistoryModal();
+    var box = modal.querySelector('.modal-box');
+    var h = '';
+    h += '<div class="modal-ttl">Wheelsets dispatched in '+monthNames[idx]+' '+calYear+'</div>';
+    h += '<div class="modal-sub">FY '+fy+'–'+(fy+1)+' · '+rows.length+' dispatched</div>';
+    if(rows.length === 0){
+      h += '<div style="padding:20px;text-align:center;color:#94a3b8;font-style:italic">No wheelsets dispatched this month.</div>';
+    } else {
+      h += '<div style="border:1px solid #e2e8f0;border-radius:5px;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+      h += '<thead><tr style="background:#f8fafc"><th style="text-align:left;padding:7px 10px;font-size:10px;color:#64748b;text-transform:uppercase">Wheelset</th><th style="text-align:left;padding:7px 10px;font-size:10px;color:#64748b;text-transform:uppercase">Coach</th><th style="text-align:left;padding:7px 10px;font-size:10px;color:#64748b;text-transform:uppercase">Case</th><th style="text-align:left;padding:7px 10px;font-size:10px;color:#64748b;text-transform:uppercase">Dispatched</th><th style="text-align:left;padding:7px 10px;font-size:10px;color:#64748b;text-transform:uppercase">Dwell</th><th style="text-align:left;padding:7px 10px;font-size:10px;color:#64748b;text-transform:uppercase"></th></tr></thead><tbody>';
+      rows.forEach(function(r){
+        var dwell = r.ws.totalDwellMs ? (r.ws.totalDwellMs/3600000).toFixed(1)+' h' : '?';
+        var disp = r.ws.dispatchedAtStr || (new Date(r.ts).toLocaleString());
+        h += '<tr>';
+        h += '<td style="padding:7px 10px;border-top:1px solid #f1f5f9;font-variant-numeric:tabular-nums;font-weight:600">'+escapeHtml(r.id)+'</td>';
+        h += '<td style="padding:7px 10px;border-top:1px solid #f1f5f9">'+escapeHtml(r.ws.c||'?')+'</td>';
+        h += '<td style="padding:7px 10px;border-top:1px solid #f1f5f9">'+(r.ws.case?'Case '+r.ws.case:'?')+'</td>';
+        h += '<td style="padding:7px 10px;border-top:1px solid #f1f5f9;font-size:11px;color:#475569">'+escapeHtml(disp)+'</td>';
+        h += '<td style="padding:7px 10px;border-top:1px solid #f1f5f9;font-variant-numeric:tabular-nums">'+dwell+'</td>';
+        h += '<td style="padding:7px 10px;border-top:1px solid #f1f5f9"><button class="mbtn" data-act="closeWsHistory" data-ws=""></button><button class="mbtn" data-act="openWheelsetHistoryFromArchive" data-ws="'+escapeHtml(r.id)+'" style="padding:3px 9px;font-size:11px">History</button></td>';
+        h += '</tr>';
+      });
+      h += '</tbody></table></div>';
+    }
+    h += '<div class="mbtns"><button class="mbtn pri" data-act="closeWsHistory">Close</button></div>';
+    box.innerHTML = h;
+    modal.classList.add('on');
+  },
+
+  // Open a dispatched wheelset's history modal (replaces current modal content)
+  openWheelsetHistoryFromArchive: function(wsId){
+    if(!wsId) return;
+    openWheelsetHistory(wsId);
+  },
+
   exportWheelsetHistory: function(wsId){
     if(!wsId) return;
     exportWheelsetHistoryAsCSV(wsId);
@@ -4875,33 +5412,102 @@ var Actions = {
 
   dispatchFFS: function(wsId){
     var ws = WS[wsId]; if(!ws) return;
-    confirmAct({
-      title: 'Certify and dispatch?',
-      message: 'Certify ' + wsId + ' as fit-for-service and release? It will be archived to History.',
-      confirmLabel: 'Yes, dispatch'
-    }, function(){
-      var now_ts = Date.now();
-      // Capture the final fitted components — what's on the wheelset as it leaves the shop.
-      ws.dispatchSnapshot = JSON.parse(JSON.stringify(ws.f));
-      var undoData = {kind:'dispatch', wsId: wsId, snapshot: JSON.parse(JSON.stringify(ws))};
-      // Per-component dispatch event for each fitted component
-      ['axle','wheelA','wheelB','brakeA','brakeB','ctrbA','ctrbB'].forEach(function(pos){
-        var c = ws.f[pos];
-        if(c && c.id && c.id !== 'pending' && c.id !== 'removed' && c.id !== 'removed-at-dis' && c.id !== 'scrap'){
-          logComponent(c.id, 'dispatched', {where:'Dispatched on '+wsId, wsId:wsId, pos:pos, attrs:extractAttrs(c), note:'Released to FFS as part of '+wsId});
-        }
-      });
-      var snapshot = JSON.parse(JSON.stringify(ws));
-      snapshot.dispatchedAt = now_ts;
-      snapshot.dispatchedAtStr = now();
-      snapshot.totalDwellMs = now_ts - (ws.arTs || now_ts);
-      ARCHIVE[wsId] = snapshot;
-      delete WS[wsId];
-      delete EXPANDED[wsId];
-      logEvent(wsId, 'adv', 'Fit-for-service certified · dispatched', undoData);
-      toast(wsId + ' dispatched and archived to history');
-      fullRefresh();
+    window._pendingDispatchWsId = wsId;
+    var modal = document.getElementById('dispatch-modal'); if(!modal) return;
+    var label = document.getElementById('dispatch-ws-label');
+    if(label) label.textContent = 'Wheelset ' + wsId + ' · Coach ' + (ws.c || '—');
+    // Reset form
+    var destSel = document.getElementById('f-dispatch-dest'); if(destSel) destSel.value = '';
+    var otherInp = document.getElementById('f-dispatch-other'); if(otherInp) otherInp.value = '';
+    var otherWrap = document.getElementById('f-dispatch-other-wrap'); if(otherWrap) otherWrap.style.display = 'none';
+    // Pre-fill bogie from wheelset
+    var bogieInp = document.getElementById('f-dispatch-bogie');
+    if(bogieInp) bogieInp.value = ws.b || '';
+    // Default date to today, max=today (block future)
+    var dateInp = document.getElementById('f-dispatch-date');
+    if(dateInp){
+      var d = new Date();
+      var yyyy = d.getFullYear();
+      var mm = String(d.getMonth()+1).padStart(2,'0');
+      var dd = String(d.getDate()).padStart(2,'0');
+      var todayStr = yyyy+'-'+mm+'-'+dd;
+      dateInp.value = todayStr;
+      dateInp.max = todayStr;
+    }
+    modal.classList.add('on');
+  },
+
+  onDispatchDestChange: function(){
+    var destSel = document.getElementById('f-dispatch-dest');
+    var otherWrap = document.getElementById('f-dispatch-other-wrap');
+    if(destSel && otherWrap){
+      otherWrap.style.display = (destSel.value === 'Other') ? '' : 'none';
+    }
+  },
+
+  closeDispatchModal: function(){
+    var m = document.getElementById('dispatch-modal'); if(m) m.classList.remove('on');
+    window._pendingDispatchWsId = null;
+  },
+
+  confirmDispatchFFS: function(){
+    var wsId = window._pendingDispatchWsId; if(!wsId) return;
+    var ws = WS[wsId]; if(!ws) return;
+    // Read form
+    var destSel = document.getElementById('f-dispatch-dest');
+    var otherInp = document.getElementById('f-dispatch-other');
+    var bogieInp = document.getElementById('f-dispatch-bogie');
+    var dateInp = document.getElementById('f-dispatch-date');
+    var dest = destSel ? destSel.value : '';
+    if(!dest){ alert('Please select a destination'); return; }
+    if(dest === 'Other'){
+      var other = (otherInp && otherInp.value || '').trim();
+      if(!other){ alert('Please specify the destination'); return; }
+      dest = other;
+    }
+    var bogie = (bogieInp && bogieInp.value || '').trim();
+    if(!bogie){ alert('Please enter the bogie number'); return; }
+    var dateStr = (dateInp && dateInp.value || '').trim();
+    var dispatchTs, dispatchLabel;
+    if(dateStr){
+      var parts = dateStr.split('-');
+      if(parts.length === 3){
+        // Parse at noon local time so DST/timezone shifts don't bump the date
+        var d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]), 12, 0, 0);
+        var todayMs = (function(){ var t = new Date(); t.setHours(0,0,0,0); return t.getTime(); })();
+        if(d.getTime() > todayMs + 86400000){ alert('Dispatch date cannot be in the future'); return; }
+        dispatchTs = d.getTime();
+        dispatchLabel = dateStr;
+      }
+    }
+    if(!dispatchTs){ dispatchTs = Date.now(); dispatchLabel = today(); }
+
+    // Close modal
+    var m = document.getElementById('dispatch-modal'); if(m) m.classList.remove('on');
+
+    // Now perform the dispatch — same logic as the original dispatchFFS, but with dispatch fields captured
+    ws.dispatchSnapshot = JSON.parse(JSON.stringify(ws.f));
+    var undoData = {kind:'dispatch', wsId: wsId, snapshot: JSON.parse(JSON.stringify(ws))};
+    ['axle','wheelA','wheelB','brakeA','brakeB','ctrbA','ctrbB'].forEach(function(pos){
+      var c = ws.f[pos];
+      if(c && c.id && c.id !== 'pending' && c.id !== 'removed' && c.id !== 'removed-at-dis' && c.id !== 'scrap'){
+        logComponent(c.id, 'dispatched', {where:'Dispatched on '+wsId+' → '+dest, wsId:wsId, pos:pos, attrs:extractAttrs(c), note:'Released to FFS as part of '+wsId+' · destination '+dest});
+      }
     });
+    var snapshot = JSON.parse(JSON.stringify(ws));
+    snapshot.dispatchedAt = dispatchTs;
+    snapshot.dispatchedAtStr = dispatchLabel;
+    snapshot.dispatchDest = dest;
+    snapshot.dispatchBogie = bogie;
+    snapshot.b = bogie;  // Update the bogie of record
+    snapshot.totalDwellMs = dispatchTs - (ws.arTs || dispatchTs);
+    ARCHIVE[wsId] = snapshot;
+    delete WS[wsId];
+    delete EXPANDED[wsId];
+    logEvent(wsId, 'adv', 'Fit-for-service certified · dispatched to '+dest+' (bogie '+bogie+', date '+dispatchLabel+')', undoData);
+    toast(wsId + ' dispatched to '+dest+' and archived');
+    window._pendingDispatchWsId = null;
+    fullRefresh();
   },
 
   // Move a pool item to the Condemned bucket
@@ -5324,7 +5930,18 @@ document.addEventListener('input', function(e){
 
 var modal = document.getElementById('modal');
 document.getElementById('add-btn').addEventListener('click', function(){
-  document.getElementById('f-arr').value = today();
+  // Default the arrival date to today, but allow backdating. Block future dates
+  // by setting max=today.
+  var dateInp = document.getElementById('f-arr-date');
+  if(dateInp){
+    var d = new Date();
+    var yyyy = d.getFullYear();
+    var mm = String(d.getMonth()+1).padStart(2,'0');
+    var dd = String(d.getDate()).padStart(2,'0');
+    var todayStr = yyyy+'-'+mm+'-'+dd;
+    dateInp.value = todayStr;
+    dateInp.max = todayStr;
+  }
   modal.classList.add('on');
 });
 document.getElementById('m-cancel').addEventListener('click', function(){ modal.classList.remove('on'); });
@@ -5465,6 +6082,26 @@ document.getElementById('m-save').addEventListener('click', function(){
 
   var coach = document.getElementById('f-coach').value.trim() || 'C-XXXX';
   var bogie = document.getElementById('f-bogie').value.trim() || 'B1';
+
+  // Arrival date — defaults to today, but user can backdate. Future dates blocked
+  // by the input's max attribute, but enforce server-side too.
+  var dateInp = document.getElementById('f-arr-date');
+  var dateStr = (dateInp && dateInp.value || '').trim();
+  var arrivalTs, arrivalLabel;
+  if(dateStr){
+    // dateStr is YYYY-MM-DD. Interpret as local midnight.
+    var parts = dateStr.split('-');
+    if(parts.length === 3){
+      var d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+      var todayMs = (function(){ var t = new Date(); t.setHours(0,0,0,0); return t.getTime(); })();
+      if(d.getTime() > todayMs + 86400000){ alert('Arrival date cannot be in the future'); return; }
+      arrivalTs = d.getTime();
+      arrivalLabel = dateStr;
+    }
+  }
+  if(!arrivalTs){ arrivalTs = Date.now(); arrivalLabel = today(); }
+  var isBackdated = arrivalTs < (Date.now() - 86400000);
+
   var n = id.replace('WS-','');
   var axle = document.getElementById('f-axle').value.trim() || ('AX-'+n);
   var wA = document.getElementById('f-wA').value.trim() || ('WD-'+n+'-A');
@@ -5484,14 +6121,16 @@ document.getElementById('m-save').addEventListener('click', function(){
     ctrbB: {id: ctB, t:'here'}
   };
   WS[id] = {
-    c: coach, b: bogie, loc: 'entry', ar: today(), arTs: Date.now(), d: 'just registered',
+    c: coach, b: bogie, loc: 'entry', ar: arrivalLabel, arTs: arrivalTs, d: isBackdated ? 'backdated arrival' : 'just registered',
     t: 'Serial capture at Entry',
     f: JSON.parse(JSON.stringify(initF)),
     arrivalSnapshot: JSON.parse(JSON.stringify(initF)),
     log: []
   };
   // Use logEvent so it lands in BOTH the per-ws log and GLOBAL_LOG (timeline needs the latter)
-  logEvent(id, 'reg', 'Registered at Entry with axle '+axle+', WD A '+wA+', WD B '+wB+', BD A '+bdA+', BD B '+bdB+', CTRB A '+ctA+', CTRB B '+ctB);
+  var regMsg = 'Registered at Entry with axle '+axle+', WD A '+wA+', WD B '+wB+', BD A '+bdA+', BD B '+bdB+', CTRB A '+ctA+', CTRB B '+ctB;
+  if(isBackdated){ regMsg += ' (backdated arrival: '+arrivalLabel+')'; }
+  logEvent(id, 'reg', regMsg);
   // Per-component first-seen events
   logComponent(axle, 'first_seen', {where:id+' · Axle position', wsId:id, pos:'axle', note:'Arrived on wheelset at registration'});
   logComponent(wA, 'first_seen', {where:id+' · Wheel disc A', wsId:id, pos:'wheelA', note:'Arrived on wheelset at registration'});
@@ -6052,7 +6691,7 @@ function openComponentHistory(serial){
 
   var h = '';
   h += '<div class="modal-ttl">Component history · <span style="font-variant-numeric:tabular-nums">'+escapeHtml(serial)+'</span></div>';
-  h += '<div class="modal-sub">Full lifecycle traced from first sighting to current location.</div>';
+
 
   // -------- Identity --------
   h += '<div class="sechd">Identity</div>';
@@ -6903,9 +7542,7 @@ if(searchResults){
   });
 }
 
-// ===========================================================================
-// CLOUD BOOTSTRAP + PIN GATE (v31)
-// ===========================================================================
+
 
 // Apply a remote update from Firestore — called when another device pushes data
 function applyCloudUpdate(docName, data, isFirst){
