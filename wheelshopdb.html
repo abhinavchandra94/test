@@ -390,7 +390,7 @@ button{font-family:inherit}
 .tl-snap-v{font-variant-numeric:tabular-nums;font-weight:500;color:#0f172a}
 
 /* Analytics tab */
-.an-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.an-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
 .an-kpi{background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:14px}
 .an-kpi-l{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin-bottom:6px}
 .an-kpi-v{font-size:22px;font-weight:700;color:#0f172a;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
@@ -563,8 +563,7 @@ body.viewer-mode #export-btn { display: inline-block; }  /* viewers may still ex
   <line x1="15" y1="172" x2="1155" y2="172" stroke="#94a3b8" stroke-width="1.1" opacity=".5"/>
   <line x1="15" y1="176" x2="1155" y2="176" stroke="#94a3b8" stroke-width="1.1" opacity=".5"/>
 
-  <!-- Off-line machines (ATL and VTL) — pool-fed, not in linear flow -->
-  <text x="20" y="218" font-size="9" fill="#64748b" font-weight="600" letter-spacing=".06em">OFF-LINE MACHINES</text>
+  <!-- ATL and VTL — pool-fed machines, shown below the main flow -->
   <line x1="30" y1="226" x2="1140" y2="226" stroke="#cbd5e1" stroke-dasharray="3 2" opacity=".6"/>
 
   <g class="machine offline" data-m="axleLathe"><rect class="mbg" x="245" y="240" width="120" height="60" fill="#fff7ed" stroke="#ea580c" stroke-width="1" stroke-dasharray="3 2" rx="3"/><text x="305" y="262" text-anchor="middle" font-size="10" font-weight="600" fill="#9a3412">Axle Lathe (ATL)</text><text x="290" y="289" text-anchor="middle" font-size="8" fill="#c2410c" letter-spacing=".5">WIP</text><text x="318" y="291" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412" class="wip-axleLathe">0</text></g>
@@ -575,10 +574,10 @@ body.viewer-mode #export-btn { display: inline-block; }  /* viewers may still ex
 
 <div class="legend">
   <span class="chip"><span class="sh" style="background:#3b82f6;border-radius:50%"></span>entry / cleaning</span>
-  <span class="chip"><span class="sh" style="background:#dc2626;border-radius:50%"></span>Case 1</span>
-  <span class="chip"><span class="sh" style="background:#eab308;border-radius:50%"></span>Case 2</span>
-  <span class="chip"><span class="sh" style="background:#86efac;border-radius:50%"></span>Case 3 / awaiting bearings</span>
-  <span class="chip"><span class="sh" style="background:#15803d;border-radius:50%"></span>Case 4 / bearings fitted</span>
+  <span class="chip"><span class="sh" style="background:#dc2626;border-radius:50%"></span>Case 1 · brake disc removal</span>
+  <span class="chip"><span class="sh" style="background:#eab308;border-radius:50%"></span>Case 2 · wheel disc removal</span>
+  <span class="chip"><span class="sh" style="background:#86efac;border-radius:50%"></span>Case 3 · CTRB removal</span>
+  <span class="chip"><span class="sh" style="background:#15803d;border-radius:50%"></span>Case 4 · all OK</span>
   <span class="chip"><span class="sh" style="background:#a855f7;border-radius:50%"></span>newly built</span>
 </div>
 </div>
@@ -668,6 +667,10 @@ body.viewer-mode #export-btn { display: inline-block; }  /* viewers may still ex
   <div class="modal-box" id="edit-ws-modal-content"></div>
 </div>
 
+<div class="modal" id="edit-pool-modal">
+  <div class="modal-box" id="edit-pool-modal-content" style="max-width:460px"></div>
+</div>
+
 <!-- Dispatch confirmation modal -->
 <div class="modal" id="dispatch-modal">
   <div class="modal-box" style="max-width:480px">
@@ -676,7 +679,7 @@ body.viewer-mode #export-btn { display: inline-block; }  /* viewers may still ex
     <div class="sechd">Dispatch details</div>
     <div class="fg">
       <div class="fgr">
-        <label class="flbl">Destination</label>
+        <label class="flbl">Overhauling type</label>
         <select class="finp" id="f-dispatch-dest" data-act="onDispatchDestChange">
           <option value="">— select —</option>
           <option value="SS1">SS1</option>
@@ -686,8 +689,8 @@ body.viewer-mode #export-btn { display: inline-block; }  /* viewers may still ex
         </select>
       </div>
       <div class="fgr" id="f-dispatch-other-wrap" style="display:none">
-        <label class="flbl">Specify destination</label>
-        <input class="finp" id="f-dispatch-other" placeholder="e.g. workshop name"/>
+        <label class="flbl">Specify type</label>
+        <input class="finp" id="f-dispatch-other" placeholder="e.g. other type"/>
       </div>
       <div class="fgr"><label class="flbl">Bogie number</label><input class="finp" id="f-dispatch-bogie" placeholder="B1"/></div>
       <div class="fgr"><label class="flbl">Date of dispatch</label><input class="finp" id="f-dispatch-date" type="date"/></div>
@@ -1060,8 +1063,8 @@ var M = {
   insp1:{n:'Inspection 1 (visual + dimensional)',t:'Survey wheel discs, brake discs, CTRBs. Decide Case 1/2/3/4 routing.',op:'A. Singh'},
   ctrbDismount:{n:'CTRB dismounting',t:'Pull both bearings to CTRB waiting pool',op:'M. Yadav'},
   insp2:{n:'Inspection 2 (axle measurement)',t:'Measure axle journal dia and shoulder dia. Decide ATL / AJTB / condemn.',op:'A. Singh'},
-  axleLathe:{n:'Axle turning lathe (ATL)',t:'Off-line · pool-fed · heavy axle refurb',op:'K. Das'},
-  vtl:{n:'Vertical turning lathe (VTL)',t:'Off-line · pool-fed · wheel disc re-turning',op:'N. Reddy'},
+  axleLathe:{n:'Axle turning lathe (ATL)',t:'Pool-fed · heavy axle refurb',op:'K. Das'},
+  vtl:{n:'Vertical turning lathe (VTL)',t:'Pool-fed · wheel disc re-turning',op:'N. Reddy'},
   wheelPress:{n:'Wheel press',t:'Partial or full disassembly per case · reassembly from pools',op:'P. Sharma'},
   ajtb:{n:'AJTB machine',t:'Axle journal turning & burnishing on-axle (after WP)',op:'V. Rao'},
   portalLathe:{n:'Portal wheel lathe',t:'Wheel profile (tread + flange)',op:'T. Iyer'},
@@ -1512,6 +1515,7 @@ function renderPoolItemRow(item, typeKey, idx, bucket){
     actBtns += '<button class="edit-btn" style="padding:2px 7px;font-size:9px;color:#9a3412;border-color:#fdba74" data-act="'+sendAct+'" data-ws="'+typeKey+'" data-bucket="'+bucket+'" data-itemid="'+item.id+'">→ '+lathe+'</button>';
   }
   if(canCondemn) actBtns += '<button class="edit-btn" style="padding:2px 7px;font-size:9px" data-act="condemnPoolItem" data-ws="'+typeKey+'" data-bucket="'+bucket+'" data-itemid="'+item.id+'">Condemn</button>';
+  actBtns += '<button class="edit-btn" style="padding:2px 7px;font-size:9px;color:#1e40af;border-color:#93c5fd" data-act="editPoolItem" data-ws="'+typeKey+'" data-bucket="'+bucket+'" data-itemid="'+item.id+'">Edit</button>';
   actBtns += '<button class="edit-btn" style="padding:2px 7px;font-size:9px;color:#991b1b" data-act="deletePoolItem" data-ws="'+typeKey+'" data-bucket="'+bucket+'" data-itemid="'+item.id+'">Delete</button>';
   actBtns += '</div>';
   return '<tr><td>'+(idx+1)+'</td><td><b>'+item.id+'</b></td><td>'+attrCell+'</td><td>'+item.origin+'</td><td>'+item.addedAt+'</td><td>'+actBtns+'</td></tr>';
@@ -1579,7 +1583,7 @@ function nextStage(loc, ws){
       if(ws.needsAjtb) return 'ajtb';
       return 'portalLathe';
     }
-    if(loc === 'wheelPress') return 'portalLathe';
+    if(loc === 'wheelPress') return ws.needsAjtb ? 'ajtb' : 'portalLathe';
     if(loc === 'ajtb') return 'portalLathe';
     if(loc === 'portalLathe') return 'ctrbMount';
     if(loc === 'ctrbMount') return 'insp3';
@@ -1873,6 +1877,15 @@ function renderControls(wsId, ws){
     }
     h += '<button class="abtn pause" data-act="holdWS" data-ws="'+wsId+'">Hold</button>';
     h += '<button class="abtn danger" data-act="condemnWS" data-ws="'+wsId+'">Condemn</button>';
+  }
+  // Per-wheelset undo: undo the most recent undoable action for THIS wheelset.
+  // Only shown when such an action exists (and it is currently the latest for this ws).
+  var lastUndoIdx = findLastUndoableForWs(wsId);
+  if(lastUndoIdx >= 0 && isEventUndoable(lastUndoIdx)){
+    var lastEv = GLOBAL_LOG[lastUndoIdx];
+    var lastMsg = lastEv ? (lastEv.msg || '') : '';
+    if(lastMsg.length > 48) lastMsg = lastMsg.slice(0, 45) + '…';
+    h += '<button class="abtn" style="color:#7c3aed;border-color:#c4b5fd" data-act="undoWsLast" data-ws="'+wsId+'" title="Undo: '+escapeHtml(lastEv ? (lastEv.msg||'') : '')+'">↶ Undo last step</button>';
   }
   h += '</div>';
 
@@ -2217,7 +2230,7 @@ function renderMachine(mId){
     h = '';
     h += '<div class="dhd"><div><div class="dname">'+m.n+'</div><div class="dtask">'+m.t+'</div></div><div><div class="dsub" style="text-align:right">Operator</div><div class="dcy"><span id="op-display-'+mId+'">'+m.op+'</span> <button class="edit-btn" data-act="editOperator" data-ws="'+mId+'" style="margin-left:6px">Edit</button></div></div></div>';
     h += '<div class="dk"><div class="kk"><div class="kk-l">WIP</div><div class="kk-v">'+wip.length+'</div></div><div class="kk"><div class="kk-l">Status</div><div class="kk-v">'+(wip.length?'Running':'Idle')+'</div></div><div class="kk"><div class="kk-l">Operator</div><div class="kk-v">'+m.op+'</div></div><div class="kk"><div class="kk-l">Shift</div><div class="kk-v">'+SHIFT+'</div></div></div>';
-    h += '<div style="font-size:12px;color:#475569;padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;margin-bottom:14px;line-height:1.6"><b style="color:#0f172a">Off-line machine.</b> Items appear here when sent from the '+poolName+'. Operator updates the new dia after turning, then returns the item to the pool.</div>';
+    h += '<div style="font-size:12px;color:#475569;padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;margin-bottom:14px;line-height:1.6"><b style="color:#0f172a">Pool-fed machine.</b> Items appear here when sent from the '+poolName+'. Operator updates the new dia after turning, then returns the item to the pool.</div>';
     h += '<div class="sec">Items currently being turned</div>';
     if(!wip.length){
       h += '<div style="font-size:12px;color:#94a3b8;font-style:italic;padding:12px 0">No items at the moment. Open the '+poolName+' to send items here.</div>';
@@ -2272,9 +2285,19 @@ function renderMachine(mId){
       }
       var collapsed = !EXPANDED[it.id];
       if(collapsed) cls += ' collapsed';
-      h += '<div class="'+cls+'">';
+      // Color the card's left edge to match the wheelset's dot color (case/state coded)
+      var dc = dotColors(ws);
+      var cardStyle = 'border-left:5px solid '+dc.fill+';';
+      // Small colored dot + case label shown in the header
+      var caseTag = '';
+      if(ws.case){
+        caseTag = ' <span style="font-size:9px;color:#fff;background:'+dc.fill+';padding:1px 6px;border-radius:8px;font-weight:600;margin-left:6px;vertical-align:middle">Case '+ws.case+'</span>';
+      } else if(ws.builtNew){
+        caseTag = ' <span style="font-size:9px;color:#fff;background:'+dc.fill+';padding:1px 6px;border-radius:8px;font-weight:600;margin-left:6px;vertical-align:middle">New build</span>';
+      }
+      h += '<div class="'+cls+'" style="'+cardStyle+'">';
       h += '<div class="chd" data-act="toggleCollapse" data-ws="'+it.id+'">';
-      h += '<div><div class="cid"><span class="collapse-ico">▾</span>'+it.id+(ws.star?' <span style="font-size:9px;color:#7c3aed;background:#ede9fe;padding:1px 5px;border-radius:3px;font-weight:500;text-transform:uppercase;letter-spacing:.04em;margin-left:5px">Hub</span>':'')+'</div>';
+      h += '<div><div class="cid"><span class="collapse-ico">▾</span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'+dc.fill+';border:1px solid '+dc.stroke+';margin-right:6px;vertical-align:middle"></span>'+it.id+caseTag+(ws.star?' <span style="font-size:9px;color:#7c3aed;background:#ede9fe;padding:1px 5px;border-radius:3px;font-weight:500;text-transform:uppercase;letter-spacing:.04em;margin-left:5px">Hub</span>':'')+'</div>';
       h += '<div class="cinfo">Coach '+ws.c+' · Bogie '+ws.b+' · '+hoursSince(ws.arTs)+' in shop'+(collapsed?' · <i>'+ws.t+'</i>':'')+'</div></div>';
       h += '<div style="display:flex;gap:8px;align-items:center">';
       h += '<button class="edit-btn" data-act="openWsHistory" data-ws="'+it.id+'" title="Full lifecycle">History</button>';
@@ -2755,11 +2778,33 @@ function renderAnalytics(){
     if(WS[id].loc === 'dispatch' && (WS[id].d||'').indexOf('released') >= 0) dispatched++;
     if((WS[id].t||'').indexOf('ON HOLD') >= 0 || (WS[id].t||'').indexOf('HOLD') >= 0) onHold++;
   });
-  var totalHours = 0, countWithTime = 0;
-  wsIds.forEach(function(id){
-    if(WS[id].arTs){ totalHours += (Date.now() - WS[id].arTs)/3600000; countWithTime++; }
+  // --- Dispatched this month + this FY (Indian FY: Apr 1 → Mar 31) ---
+  var nowD = new Date();
+  var curMonth = nowD.getMonth();      // 0=Jan
+  var curYear = nowD.getFullYear();
+  var curFyStart = curMonth >= 3 ? curYear : (curYear - 1);  // FY starting year
+  var dispatchedThisMonth = 0, dispatchedThisFy = 0;
+  var ohTypeFy = {SS1:0, SS3:0, Division:0, Other:0};  // overhauling-type split for current FY
+  Object.keys(ARCHIVE).forEach(function(id){
+    var a = ARCHIVE[id];
+    if(a.disposition === 'disassembled') return;  // only count successfully dispatched
+    var ts = a.dispatchedAt || a.arTs;
+    if(!ts) return;
+    var dd = new Date(ts);
+    var ddMonth = dd.getMonth(), ddYear = dd.getFullYear();
+    // This calendar month
+    if(ddMonth === curMonth && ddYear === curYear) dispatchedThisMonth++;
+    // This FY (Apr→Mar)
+    var ddFyStart = ddMonth >= 3 ? ddYear : (ddYear - 1);
+    if(ddFyStart === curFyStart){
+      dispatchedThisFy++;
+      var t = (a.dispatchDest || '').trim();
+      var key = (t === 'SS1') ? 'SS1' : (t === 'SS3') ? 'SS3' : (t === 'Division') ? 'Division' : 'Other';
+      ohTypeFy[key]++;
+    }
   });
-  var avgDwell = countWithTime ? (totalHours / countWithTime).toFixed(1) : '0';
+  var curMonthName = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][curMonth];
+  var curFyLabel = 'FY ' + curFyStart + '–' + (curFyStart + 1).toString().slice(2);
 
   // --- WIP by stage ---
   var wipByStage = {};
@@ -2844,10 +2889,29 @@ function renderAnalytics(){
   var h = '';
   h += '<div class="an-grid">';
   h += '<div class="an-kpi"><div class="an-kpi-l">Active wheelsets</div><div class="an-kpi-v">'+totalActive+'</div><div class="an-kpi-sub">currently in the shop</div></div>';
-  h += '<div class="an-kpi"><div class="an-kpi-l">At dispatch</div><div class="an-kpi-v good">'+dispatched+'</div><div class="an-kpi-sub">ready / released</div></div>';
-  h += '<div class="an-kpi"><div class="an-kpi-l">Avg dwell time</div><div class="an-kpi-v">'+avgDwell+' h</div><div class="an-kpi-sub">mean hours in shop</div></div>';
-  h += '<div class="an-kpi"><div class="an-kpi-l">On hold</div><div class="an-kpi-v '+(onHold>0?'warn':'')+'">'+onHold+'</div><div class="an-kpi-sub">flagged for review</div></div>';
+  h += '<div class="an-kpi"><div class="an-kpi-l">Dispatched this month</div><div class="an-kpi-v good">'+dispatchedThisMonth+'</div><div class="an-kpi-sub">'+curMonthName+' '+curYear+'</div></div>';
+  h += '<div class="an-kpi"><div class="an-kpi-l">Dispatched this FY</div><div class="an-kpi-v good">'+dispatchedThisFy+'</div><div class="an-kpi-sub">cumulative · '+curFyLabel+'</div></div>';
   h += '</div>';
+
+  // --- Overhauling-type bifurcation (SS1 / SS3 / Division / Other) for the current FY ---
+  var ohOrder = [
+    {k:'SS1',      label:'SS1',      color:'#2563eb'},
+    {k:'SS3',      label:'SS3',      color:'#0891b2'},
+    {k:'Division', label:'Division', color:'#7c3aed'},
+    {k:'Other',    label:'Other',    color:'#64748b'}
+  ];
+  h += '<div class="an-card" style="margin-bottom:14px"><div class="an-card-hd"><span class="an-card-ttl">Dispatched by overhauling type</span><span class="an-card-sub">'+curFyLabel+' · cumulative</span></div>';
+  h += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:6px 0">';
+  ohOrder.forEach(function(d){
+    var ct = ohTypeFy[d.k];
+    var pct = dispatchedThisFy ? Math.round((ct/dispatchedThisFy)*100) : 0;
+    h += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px;border-top:3px solid '+d.color+'">';
+    h += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;font-weight:600;margin-bottom:4px">'+d.label+'</div>';
+    h += '<div style="font-size:26px;font-weight:700;color:'+d.color+';font-variant-numeric:tabular-nums">'+ct+'</div>';
+    h += '<div style="font-size:10px;color:#94a3b8;margin-top:2px">'+pct+'% of FY total</div>';
+    h += '</div>';
+  });
+  h += '</div></div>';
 
   // WP throughput card (v25)
   h += '<div class="an-card"><div class="an-card-hd"><span class="an-card-ttl">Wheel Press throughput · pool flow</span><span class="an-card-sub">all-time · helps track if pools are draining or growing</span></div>';
@@ -3041,15 +3105,44 @@ function renderAnalytics(){
   var maxMonth = 1;
   monthMap.forEach(function(arr){ if(arr.length > maxMonth) maxMonth = arr.length; });
 
-  // Render as a 12-column bar chart, each clickable
+  // Overhauling-type colors (match the bifurcation card at top)
+  var ohColors = {SS1:'#2563eb', SS3:'#0891b2', Division:'#7c3aed', Other:'#64748b'};
+  function ohKey(rec){
+    var t = (rec.ws.dispatchDest || '').trim();
+    return (t === 'SS1') ? 'SS1' : (t === 'SS3') ? 'SS3' : (t === 'Division') ? 'Division' : 'Other';
+  }
+
+  // Type legend above the chart
+  h += '<div style="display:flex;gap:14px;margin-bottom:8px;flex-wrap:wrap">';
+  [['SS1','SS1'],['SS3','SS3'],['Division','Division'],['Other','Other']].forEach(function(p){
+    h += '<span style="display:inline-flex;align-items:center;gap:5px;font-size:10px;color:#475569;font-weight:500"><span style="width:11px;height:11px;border-radius:2px;background:'+ohColors[p[0]]+';display:inline-block"></span>'+p[1]+'</span>';
+  });
+  h += '</div>';
+
+  // Render as a 12-column STACKED bar chart, each clickable
   h += '<div style="display:grid;grid-template-columns:repeat(12,1fr);gap:6px;align-items:end;height:140px;padding:8px 4px;border:1px solid #e2e8f0;border-radius:5px;background:#f8fafc">';
   monthMap.forEach(function(arr, idx){
     var ct = arr.length;
     var hPct = ct ? Math.max(6, (ct/maxMonth)*100) : 0;
-    var color = ct ? '#2563eb' : '#cbd5e1';
+    // Count each overhauling type within this month
+    var split = {SS1:0, SS3:0, Division:0, Other:0};
+    arr.forEach(function(rec){ split[ohKey(rec)]++; });
+
     h += '<div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;cursor:'+(ct?'pointer':'default')+';" '+(ct?'data-act="openDispatchMonth" data-val="'+selFy+'_'+idx+'" title="Click to see '+ct+' wheelset(s)"':'')+'>';
     h += '<div style="font-size:11px;font-weight:600;color:#0f172a;font-variant-numeric:tabular-nums;margin-bottom:2px">'+(ct||'')+'</div>';
-    h += '<div style="width:100%;background:'+color+';height:'+hPct+'%;border-radius:3px 3px 0 0;transition:opacity .15s" onmouseover="this.style.opacity=.7" onmouseout="this.style.opacity=1"></div>';
+    if(ct){
+      // Stacked column: each segment proportional to its share of this month's bar height
+      h += '<div style="width:100%;height:'+hPct+'%;display:flex;flex-direction:column;border-radius:3px 3px 0 0;overflow:hidden;transition:opacity .15s" onmouseover="this.style.opacity=.75" onmouseout="this.style.opacity=1">';
+      ['SS1','SS3','Division','Other'].forEach(function(k){
+        if(split[k] > 0){
+          var segPct = (split[k]/ct)*100;
+          h += '<div style="width:100%;height:'+segPct+'%;background:'+ohColors[k]+'" title="'+k+': '+split[k]+'"></div>';
+        }
+      });
+      h += '</div>';
+    } else {
+      h += '<div style="width:100%;background:#cbd5e1;height:0%;border-radius:3px 3px 0 0"></div>';
+    }
     h += '</div>';
   });
   h += '</div>';
@@ -3060,6 +3153,7 @@ function renderAnalytics(){
 
   var totalForFy = monthMap.reduce(function(s, a){ return s + a.length; }, 0);
   h += '<div style="font-size:11px;color:#475569;margin-top:8px"><b>Total dispatched in FY '+selFy+'–'+(selFy+1)+':</b> '+totalForFy+'</div>';
+
   h += '</div></div>'; // end an-card + an-cards
 
   wrap.innerHTML = h;
@@ -3117,23 +3211,37 @@ function dotColors(ws){
 
   var caseColor = {1: red, 2: yellow, 3: lightGreen, 4: darkGreen};
 
-  // 1) Newly-built wheelsets from pool stay PURPLE until bearings mounted
-  if(ws.builtNew && (ws.loc === 'wheelPress' || ws.loc === 'ajtb' || ws.loc === 'portalLathe')){
-    return purple;
+  // Helper: are both bearings actually mounted? (real serials, not pending/removed placeholders)
+  function bearingsMounted(w){
+    var a = w.f && w.f.ctrbA ? w.f.ctrbA.id : null;
+    var b = w.f && w.f.ctrbB ? w.f.ctrbB.id : null;
+    var placeholder = function(id){
+      return !id || id === 'pending' || id === 'removed' || id === 'removed-at-dis' || id === 'scrap';
+    };
+    return !placeholder(a) && !placeholder(b);
   }
-  // 2) After CTRB Mount → bearings fitted → dark green (everyone, including new builds)
-  if(ws.loc === 'ctrbMount' || ws.loc === 'insp3' || ws.loc === 'dispatch'){
-    return darkGreen;
-  }
-  // 3) Pre-Insp-1: blue
-  if(ws.loc === 'entry' || ws.loc === 'cleaning' || !ws.case){
-    return entryBlue;
-  }
-  // 4) Case 4 wheelsets keep dark green throughout (bearings never removed)
+
+  // 1) Case 4 wheelsets keep dark green throughout (bearings never removed)
   if(ws.case === 4){
     return darkGreen;
   }
-  // 5) Cases 1-3 after WP reassembly, or in AJTB / Portal Lathe → light green
+  // 2) Pre-Insp-1: blue
+  if(ws.loc === 'entry' || ws.loc === 'cleaning' || !ws.case){
+    return entryBlue;
+  }
+  // 3) After Insp-3 / at Dispatch → bearings are fitted by definition → dark green
+  if(ws.loc === 'insp3' || ws.loc === 'dispatch'){
+    return darkGreen;
+  }
+  // 4) At CTRB Mount: light green until bearings are actually mounted, then dark green
+  if(ws.loc === 'ctrbMount'){
+    return bearingsMounted(ws) ? darkGreen : lightGreen;
+  }
+  // 5) Newly-built wheelsets from pool stay PURPLE until they reach CTRB Mount + bearings
+  if(ws.builtNew && (ws.loc === 'wheelPress' || ws.loc === 'ajtb' || ws.loc === 'portalLathe')){
+    return purple;
+  }
+  // 6) Cases 1-3 after WP reassembly, or in AJTB / Portal Lathe → light green
   //    (assembled but bearings still pending)
   if(ws.loc === 'wheelPress' && ws.wpPhase === 'reasm'){
     return lightGreen;
@@ -3141,7 +3249,7 @@ function dotColors(ws){
   if(ws.loc === 'portalLathe' || ws.loc === 'ajtb'){
     return lightGreen;
   }
-  // 6) Cases 1-3 from Insp-1 up to WP disasm: case color
+  // 7) Cases 1-3 from Insp-1 up to WP disasm: case color
   if(caseColor[ws.case]){
     return caseColor[ws.case];
   }
@@ -3551,6 +3659,27 @@ function renderPicker(kind, wsId){
       h += '</label>';
       h += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;padding:6px 0">';
       h += '<input type="radio" name="build-route" data-act="setBuildAjtb" data-val="1"'+(ajtbChecked?' checked':'')+'/> ';
+      h += '<span><b>Send to AJTB first</b> · then Portal Lathe → CTRB Mount → Dispatch</span>';
+      h += '</label>';
+      h += '</div>';
+    }
+
+    // For reassembly (old wheelsets), also let the supervisor route via AJTB before Portal.
+    // This mirrors the new-build routing choice. Applies to Case 1/2/3 that pass through WP.
+    if(!isBuild){
+      if(window.__pickerSel._reasmAjtb == null){
+        // Default to the wheelset's existing needsAjtb flag if set, else false
+        window.__pickerSel._reasmAjtb = !!(WS[wsId] && WS[wsId].needsAjtb);
+      }
+      var reasmAjtbChecked = window.__pickerSel._reasmAjtb;
+      h += '<div style="margin-top:14px;padding:12px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:5px;font-size:12px">';
+      h += '<div style="font-weight:600;color:#0f172a;margin-bottom:8px">Routing after reassembly — your choice</div>';
+      h += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;padding:6px 0">';
+      h += '<input type="radio" name="reasm-route" data-act="setReasmAjtb" data-val="0"'+(!reasmAjtbChecked?' checked':'')+'/> ';
+      h += '<span><b>Skip AJTB</b> · go straight to Portal Lathe → CTRB Mount → Dispatch</span>';
+      h += '</label>';
+      h += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;padding:6px 0">';
+      h += '<input type="radio" name="reasm-route" data-act="setReasmAjtb" data-val="1"'+(reasmAjtbChecked?' checked':'')+'/> ';
       h += '<span><b>Send to AJTB first</b> · then Portal Lathe → CTRB Mount → Dispatch</span>';
       h += '</label>';
       h += '</div>';
@@ -4659,6 +4788,8 @@ var Actions = {
       }
 
       ws.wpPhase = 'reasm';
+      // Apply the supervisor's AJTB routing choice (from the reasm picker radio buttons)
+      ws.needsAjtb = !!(window.__pickerSel && window.__pickerSel._reasmAjtb);
       ws.t = 'Reassembled · '+(ws.needsAjtb ? 'AJTB next' : 'Portal Lathe next');
       ws.d = 'reassembly done';
       logEvent(wsId, 'fit', 'Reassembled (Case '+(ws.case||'?')+'): '+fitParts.join(', '), undoData);
@@ -4687,6 +4818,15 @@ var Actions = {
     if(!window.__pickerSel) window.__pickerSel = {};
     window.__pickerSel._buildAjtb = String(extra && extra.val) === '1';
     renderPicker('build', '__build');
+  },
+
+  // Toggle the AJTB routing choice in the reassembly picker (old wheelsets)
+  setReasmAjtb: function(_, extra){
+    if(!window.__pickerSel) window.__pickerSel = {};
+    window.__pickerSel._reasmAjtb = String(extra && extra.val) === '1';
+    // Re-render the reasm picker; the wheelset id is stored on the picker as _wsId
+    var wsId = window.__pickerSel._wsId;
+    if(wsId) renderPicker('reasm', wsId);
   },
 
   // Capture the user-edited wheelset ID for a new build. Don't re-render the whole
@@ -5303,6 +5443,15 @@ var Actions = {
     undoEventAtIdx(idx);
   },
 
+  // Undo the most recent undoable action for a specific wheelset
+  undoWsLast: function(wsId){
+    if(!wsId) return;
+    var idx = findLastUndoableForWs(wsId);
+    if(idx < 0){ toast('Nothing to undo for '+wsId); return; }
+    // undoEventAtIdx validates undoability and shows its own confirmation dialog
+    undoEventAtIdx(idx);
+  },
+
   closeComponentHistory: function(){
     var m = document.getElementById('comp-history-modal');
     if(m) m.classList.remove('on');
@@ -5558,6 +5707,115 @@ var Actions = {
       toast(itemId + ' deleted', 'err');
       fullRefresh();
     });
+  },
+
+  // Open the edit-pool-item modal — lets supervisor change serial number and attributes
+  editPoolItem: function(poolId, extra){
+    var bucket = extra && extra.bucket;
+    var itemId = extra && extra.itemid;
+    if(!poolId || !bucket || !itemId) return;
+    var arr = (POOL[poolId] && POOL[poolId][bucket]) || [];
+    var item = null;
+    for(var i=0;i<arr.length;i++){ if(arr[i].id === itemId){ item = arr[i]; break; } }
+    if(!item){ toast('Item not found', 'err'); return; }
+
+    window._editPool = {poolId: poolId, bucket: bucket, origId: itemId};
+
+    var poolName = poolId==='ax'?'Axle':poolId==='wd'?'Wheel disc':poolId==='bd'?'Brake disc':'CTRB bearing';
+    var cfg = ATTR_CONFIG[poolId];
+
+    var h = '';
+    h += '<div class="modal-ttl">Edit '+poolName+' — '+escapeHtml(itemId)+'</div>';
+    h += '<div class="sechd">Identification</div>';
+    h += '<div class="fg">';
+    h += '<div class="fgr"><label class="flbl">Serial number</label><input class="finp" id="ep-serial" value="'+escapeHtml(item.id||'')+'"/></div>';
+    h += '</div>';
+
+    h += '<div class="sechd">Details</div>';
+    h += '<div class="fg">';
+    // Attribute field (journal dia / dia / thickness / mounting date) depends on pool type
+    if(poolId === 'ax'){
+      h += '<div class="fgr"><label class="flbl">Journal dia (mm)</label><input class="finp" id="ep-attr" type="number" step="0.1" value="'+(item.journalDia!=null?item.journalDia:'')+'"/></div>';
+      h += '<div class="fgr"><label class="flbl">Shoulder dia (mm)</label><input class="finp" id="ep-attr2" type="number" step="0.1" value="'+(item.shoulderDia!=null?item.shoulderDia:'')+'"/></div>';
+    } else if(poolId === 'wd'){
+      h += '<div class="fgr"><label class="flbl">Wheel dia (mm)</label><input class="finp" id="ep-attr" type="number" step="0.1" value="'+(item.dia!=null?item.dia:'')+'"/></div>';
+    } else if(poolId === 'bd'){
+      h += '<div class="fgr"><label class="flbl">Thickness (mm)</label><input class="finp" id="ep-attr" type="number" step="0.1" value="'+(item.thickness!=null?item.thickness:'')+'"/></div>';
+    } else if(poolId === 'ct'){
+      h += '<div class="fgr"><label class="flbl">Make</label><input class="finp" id="ep-attr3" value="'+escapeHtml(item.make||'')+'"/></div>';
+      h += '<div class="fgr"><label class="flbl">Mfg date</label><input class="finp" id="ep-attr" type="date" value="'+escapeHtml(item.mfgDate||'')+'"/></div>';
+    }
+    h += '<div class="fgr"><label class="flbl">Origin / source</label><input class="finp" id="ep-origin" value="'+escapeHtml(item.origin||'')+'"/></div>';
+    h += '</div>';
+
+    h += '<div class="mbtns"><button class="mbtn" data-act="closeEditPool" type="button">Cancel</button>';
+    h += '<button class="mbtn pri" data-act="confirmEditPool" type="button">Save changes</button></div>';
+
+    document.getElementById('edit-pool-modal-content').innerHTML = h;
+    document.getElementById('edit-pool-modal').classList.add('on');
+  },
+
+  closeEditPool: function(){
+    var m = document.getElementById('edit-pool-modal'); if(m) m.classList.remove('on');
+    window._editPool = null;
+  },
+
+  confirmEditPool: function(){
+    var ep = window._editPool; if(!ep) return;
+    var poolId = ep.poolId, bucket = ep.bucket, origId = ep.origId;
+    var arr = (POOL[poolId] && POOL[poolId][bucket]) || [];
+    var item = null;
+    for(var i=0;i<arr.length;i++){ if(arr[i].id === origId){ item = arr[i]; break; } }
+    if(!item){ toast('Item not found', 'err'); return; }
+
+    var getV = function(id){ var el = document.getElementById(id); return el ? el.value.trim() : ''; };
+    var newSerial = getV('ep-serial');
+    if(!newSerial){ toast('Serial cannot be empty', 'warn'); return; }
+
+    // If serial changed, check it doesn't collide with another item in the same bucket
+    if(newSerial !== origId){
+      for(var j=0;j<arr.length;j++){
+        if(arr[j] !== item && arr[j].id === newSerial){
+          toast('Serial '+newSerial+' already exists in this pool', 'err'); return;
+        }
+      }
+    }
+
+    var changes = [];
+    if(newSerial !== origId){ changes.push('serial '+origId+'→'+newSerial); item.id = newSerial; }
+
+    if(poolId === 'ax'){
+      var jd = getV('ep-attr'), sd = getV('ep-attr2');
+      if(jd !== '' && parseFloat(jd) !== item.journalDia){ changes.push('journal dia→'+jd); item.journalDia = parseFloat(jd); }
+      if(sd !== '' && parseFloat(sd) !== item.shoulderDia){ changes.push('shoulder dia→'+sd); item.shoulderDia = parseFloat(sd); }
+    } else if(poolId === 'wd'){
+      var d = getV('ep-attr');
+      if(d !== '' && parseFloat(d) !== item.dia){ changes.push('dia→'+d); item.dia = parseFloat(d); }
+    } else if(poolId === 'bd'){
+      var th = getV('ep-attr');
+      if(th !== '' && parseFloat(th) !== item.thickness){ changes.push('thickness→'+th); item.thickness = parseFloat(th); }
+    } else if(poolId === 'ct'){
+      var mk = getV('ep-attr3'), mfg = getV('ep-attr');
+      if(mk !== (item.make||'')){ changes.push('make→'+mk); item.make = mk; }
+      if(mfg !== (item.mfgDate||'')){ changes.push('mfg date→'+mfg); item.mfgDate = mfg; }
+    }
+    var origin = getV('ep-origin');
+    if(origin !== (item.origin||'')){ changes.push('origin updated'); item.origin = origin; }
+
+    var m = document.getElementById('edit-pool-modal'); if(m) m.classList.remove('on');
+    window._editPool = null;
+
+    if(changes.length === 0){ toast('No changes made'); return; }
+
+    var poolName = poolId==='ax'?'Axle':poolId==='wd'?'Wheel disc':poolId==='bd'?'Brake disc':'CTRB';
+    logEvent('__system', 'edit', 'Edited '+poolName+' pool item '+origId+': '+changes.join(', '));
+    if(newSerial !== origId){
+      logComponent(newSerial, 'edited', {where:poolName+' pool', note:'Serial changed from '+origId+' and/or details edited by supervisor'});
+    } else {
+      logComponent(newSerial, 'edited', {where:poolName+' pool', note:'Details edited by supervisor: '+changes.join(', ')});
+    }
+    toast(poolName+' item updated');
+    fullRefresh();
   },
 
   holdWS: function(wsId){
