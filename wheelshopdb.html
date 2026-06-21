@@ -479,6 +479,7 @@ body.viewer-mode #export-btn { display: inline-block; }  /* viewers may still ex
     <span class="persist" id="persist-status">Synced</span>
     <button class="btn-secondary" id="undo-btn" title="Undo last action" disabled>↶ Undo</button>
     <button class="btn-secondary" id="export-btn" title="Export all data">⤓ Export</button>
+    <button class="btn-secondary" id="backup-btn" title="Backup &amp; restore" style="color:#15803d;border-color:#86efac">🛡 Backup</button>
     <button class="btn-add" id="add-btn">Add wheelset</button>
     <button class="btn-secondary" id="reset-btn">Reset</button>
   </div>
@@ -488,6 +489,7 @@ body.viewer-mode #export-btn { display: inline-block; }  /* viewers may still ex
   <button class="tab active" data-tab="ops">Operations</button>
   <button class="tab" data-tab="history">History</button>
   <button class="tab" data-tab="analytics">Analytics</button>
+  <button class="tab" data-tab="pivot">Pivot report</button>
 </nav>
 
 <div class="pane" id="pane-ops">
@@ -625,6 +627,10 @@ body.viewer-mode #export-btn { display: inline-block; }  /* viewers may still ex
   <div id="analytics-content"></div>
 </div>
 
+<div class="pane" id="pane-pivot" hidden>
+  <div id="pivot-content"></div>
+</div>
+
 <footer class="app-footer"></footer>
 
 </div>
@@ -669,6 +675,18 @@ body.viewer-mode #export-btn { display: inline-block; }  /* viewers may still ex
 
 <div class="modal" id="edit-pool-modal">
   <div class="modal-box" id="edit-pool-modal-content" style="max-width:460px"></div>
+</div>
+
+<div class="modal" id="rr-drill-modal">
+  <div class="modal-box" id="rr-drill-modal-content" style="max-width:640px"></div>
+</div>
+
+<div class="modal" id="pivot-filter-modal">
+  <div class="modal-box" id="pivot-filter-modal-content" style="max-width:600px"></div>
+</div>
+
+<div class="modal" id="backup-modal">
+  <div class="modal-box" id="backup-modal-content" style="max-width:680px"></div>
 </div>
 
 <!-- Dispatch confirmation modal -->
@@ -743,7 +761,7 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp, initial
 
 // =============== PASTE YOUR firebaseConfig HERE ====================
 const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyA_metFeOLWucoMleWIB45kXmVDdXilesM",
+  apiKey: "AIzaSyA_metFeOLWucoMleWIB45kXmVDdXilesM",
   authDomain: "wheel-shop-db.firebaseapp.com",
   projectId: "wheel-shop-db",
   storageBucket: "wheel-shop-db.firebasestorage.app",
@@ -1250,7 +1268,13 @@ function loadState(){
     var sAtl = localStorage.getItem('wst6_atl_wip');
     var sVtl = localStorage.getItem('wst6_vtl_wip');
     var sCL = localStorage.getItem('wst6_complog');
-    WS = sWS ? JSON.parse(sWS) : JSON.parse(JSON.stringify(DEFAULT_WS));
+    // If localStorage has no data, do NOT seed demo data — start empty and
+    // wait for cloud to deliver the canonical state. This prevents the
+    // "browser cache cleared → demo data appears → real data overwritten"
+    // failure mode. If there's no cloud and no local data, the user will
+    // see an empty shop and can either restore from backup or register
+    // wheelsets fresh.
+    WS = sWS ? JSON.parse(sWS) : {};
     POOL = sP ? JSON.parse(sP) : JSON.parse(JSON.stringify(DEFAULT_POOL));
     // Default to all collapsed. Old wst6_collapsed key (inverse meaning) is intentionally ignored.
     // Per supervisor request: every page reload starts with all wheelsets collapsed.
@@ -1367,10 +1391,13 @@ function loadState(){
       if(it && it.id) _backfillFirstSeen(it.id, 'VTL', {dia: it.currentAttr || it.originalAttr}, 'Legacy data: was already on VTL when tracking began');
     });
   }catch(e){
-    WS = JSON.parse(JSON.stringify(DEFAULT_WS));
+    console.error('[loadState] Error reading localStorage:', e);
+    // Start empty — do not seed demo data. The cloud (if reachable) will deliver
+    // the canonical state; otherwise the user can restore from backup.
+    WS = {};
     POOL = JSON.parse(JSON.stringify(DEFAULT_POOL));
     EXPANDED = {};
-    GLOBAL_LOG = seedGlobalLog();
+    GLOBAL_LOG = [];
     ARCHIVE = {};
     ATL_WIP = [];
     VTL_WIP = [];
@@ -1592,11 +1619,12 @@ function nextStage(loc, ws){
 }
 function wsAt(mId){var out=[];for(var id in WS){if(WS[id].loc===mId)out.push({id:id,ws:WS[id]});}return out;}
 var __evSeq = 0;
-function logEvent(wsId,tag,msg,undoData){
+function logEvent(wsId,tag,msg,undoData,meta){
   var timeStr = now();
   __evSeq++;
   var entry = {ts: Date.now(), seq: __evSeq, timeStr: timeStr, wsId: wsId, tag: tag, msg: msg};
   if(undoData){ entry.undoData = undoData; entry.undoable = true; }
+  if(meta){ entry.meta = meta; }
   if(WS[wsId]){
     WS[wsId].log.unshift({t:timeStr, tag:tag, m:msg});
     if(WS[wsId].log.length>50) WS[wsId].log.length=50;
@@ -2765,6 +2793,439 @@ function renderHistory(){
   wrap.innerHTML = h;
 }
 
+// ========== PIVOT REPORT TAB ==========
+// A flexible pivot table for wheelset analytics.
+// User picks: row dimension, column dimension, date field, date range, filters.
+// Cells show wheelset counts and are clickable to see the actual wheelset numbers.
+
+// Dimension definitions — each tells us how to bucket a wheelset record.
+// getter(w, all) returns the bucket key (a string), or null to exclude from that dim.
+// label is for the dropdown / header.
+// order(keys) returns keys sorted for display.
+var PIVOT_DIMS = {
+  none: {
+    label: '— none —',
+    getter: function(){ return 'All'; },
+    order: function(){ return ['All']; }
+  },
+  case: {
+    label: 'Inspection case',
+    getter: function(w){
+      if(w.case === 1 || w.case === 2 || w.case === 3 || w.case === 4) return 'Case '+w.case;
+      return 'Not inspected';
+    },
+    order: function(){ return ['Case 1','Case 2','Case 3','Case 4','Not inspected']; }
+  },
+  ohType: {
+    label: 'Overhauling type',
+    getter: function(w){
+      var t = (w.dispatchDest || '').trim();
+      if(t === 'SS1' || t === 'SS3' || t === 'Division') return t;
+      if(!t) return 'Not dispatched';
+      return 'Other';
+    },
+    order: function(){ return ['SS1','SS3','Division','Other','Not dispatched']; }
+  },
+  status: {
+    label: 'Status',
+    getter: function(w, all){
+      if(all.isArchived){
+        if(all.archive && all.archive.disposition === 'disassembled') return 'Disassembled';
+        return 'Dispatched';
+      }
+      return 'Active';
+    },
+    order: function(){ return ['Active','Dispatched','Disassembled']; }
+  },
+  station: {
+    label: 'Current station',
+    getter: function(w, all){
+      if(all.isArchived) return null; // archived have no current station
+      return M_LABEL[w.loc] || w.loc || 'Unknown';
+    },
+    order: function(keys){
+      var ordered = [];
+      M_ORDER.forEach(function(loc){
+        var lbl = M_LABEL[loc] || loc;
+        if(keys.indexOf(lbl) >= 0) ordered.push(lbl);
+      });
+      keys.forEach(function(k){ if(ordered.indexOf(k) < 0) ordered.push(k); });
+      return ordered;
+    }
+  },
+  arrivalMonth: {
+    label: 'Month of arrival',
+    getter: function(w){
+      if(!w.arTs) return null;
+      var d = new Date(w.arTs);
+      return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    },
+    order: function(keys){ return keys.slice().sort(); }
+  },
+  dispatchMonth: {
+    label: 'Month of dispatch',
+    getter: function(w, all){
+      if(!all.isArchived || !all.archive) return null;
+      var ts = all.archive.dispatchedAt;
+      if(!ts) return null;
+      var d = new Date(ts);
+      return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    },
+    order: function(keys){ return keys.slice().sort(); }
+  },
+  bogie: {
+    label: 'Bogie',
+    getter: function(w){ return w.b || '—'; },
+    order: function(keys){ return keys.slice().sort(); }
+  }
+};
+
+function renderPivot(){
+  var wrap = document.getElementById('pivot-content');
+  if(!wrap) return;
+
+  // ----- State -----
+  if(!window._pivot){
+    var nd = new Date();
+    var fyStart = nd.getMonth() >= 3 ? nd.getFullYear() : (nd.getFullYear() - 1);
+    window._pivot = {
+      rowDim: 'case',
+      colDim: 'ohType',
+      dateField: 'arrival',   // 'arrival' or 'dispatch'
+      from: new Date(fyStart, 3, 1).toISOString().slice(0,10),
+      to: nd.toISOString().slice(0,10),
+      filters: {} // {dimKey: [allowedValues...]}
+    };
+  }
+  var P = window._pivot;
+
+  // ----- Build the underlying record set -----
+  // Combine WS + ARCHIVE. Each record carries the wheelset object and an 'isArchived' flag.
+  var records = [];
+  Object.keys(WS).forEach(function(id){
+    records.push({id: id, w: WS[id], isArchived: false, archive: null});
+  });
+  Object.keys(ARCHIVE).forEach(function(id){
+    var a = ARCHIVE[id];
+    records.push({id: id, w: a, isArchived: true, archive: a});
+  });
+
+  // ----- Apply date filter -----
+  var fromTs = new Date(P.from + 'T00:00:00').getTime();
+  var toTs = new Date(P.to + 'T23:59:59').getTime();
+  var dateFilterValid = !isNaN(fromTs) && !isNaN(toTs) && fromTs <= toTs;
+  var filtered = records.filter(function(r){
+    if(!dateFilterValid) return true;
+    var ts = null;
+    if(P.dateField === 'arrival') ts = r.w.arTs;
+    else if(P.dateField === 'dispatch'){
+      if(!r.isArchived) return false;  // only archived can be filtered by dispatch date
+      ts = r.archive.dispatchedAt;
+    }
+    if(!ts) return false;
+    return ts >= fromTs && ts <= toTs;
+  });
+
+  // ----- Apply dimension value filters -----
+  Object.keys(P.filters).forEach(function(dimKey){
+    var allowed = P.filters[dimKey];
+    if(!allowed || !allowed.length) return;  // no filter
+    var dim = PIVOT_DIMS[dimKey];
+    if(!dim) return;
+    filtered = filtered.filter(function(r){
+      var k = dim.getter(r.w, r);
+      if(k == null) return false;
+      return allowed.indexOf(k) >= 0;
+    });
+  });
+
+  // ----- Compute pivot cells -----
+  var rowDim = PIVOT_DIMS[P.rowDim] || PIVOT_DIMS.none;
+  var colDim = PIVOT_DIMS[P.colDim] || PIVOT_DIMS.none;
+  var cells = {};   // cells[row][col] = [ids]
+  var rowKeysSet = {}, colKeysSet = {};
+  filtered.forEach(function(r){
+    var rk = rowDim.getter(r.w, r);
+    var ck = colDim.getter(r.w, r);
+    if(rk == null || ck == null) return;
+    rowKeysSet[rk] = true; colKeysSet[ck] = true;
+    if(!cells[rk]) cells[rk] = {};
+    if(!cells[rk][ck]) cells[rk][ck] = [];
+    cells[rk][ck].push(r.id);
+  });
+  var rowKeys = rowDim.order(Object.keys(rowKeysSet));
+  var colKeys = colDim.order(Object.keys(colKeysSet));
+
+  // ----- Stash for drill-down -----
+  window._pivotCells = cells;
+
+  // =========================================
+  // RENDER
+  // =========================================
+  var h = '';
+  h += '<div class="an-card" style="margin-bottom:14px">';
+  h += '<div class="an-card-hd"><span class="an-card-ttl">Pivot report</span><span class="an-card-sub">'+filtered.length+' wheelset(s) in current view</span></div>';
+
+  // ----- Controls row 1: row, column, date field -----
+  function dimSelect(id, current, includeNone){
+    var s = '<select id="'+id+'" data-act="pivotChangeDim" data-key="'+id+'" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;font-family:inherit;background:#fff">';
+    Object.keys(PIVOT_DIMS).forEach(function(k){
+      if(k === 'none' && !includeNone) return;
+      s += '<option value="'+k+'"'+(k===current?' selected':'')+'>'+PIVOT_DIMS[k].label+'</option>';
+    });
+    s += '</select>';
+    return s;
+  }
+
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px;padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px">';
+  h += '<div><label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;font-weight:600;margin-bottom:4px">Rows</label>'+dimSelect('pv-row', P.rowDim, true)+'</div>';
+  h += '<div><label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;font-weight:600;margin-bottom:4px">Columns</label>'+dimSelect('pv-col', P.colDim, true)+'</div>';
+  h += '<div><label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;font-weight:600;margin-bottom:4px">Date field</label>';
+  h += '<select id="pv-datefield" data-act="pivotChangeDim" data-key="pv-datefield" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;font-family:inherit;background:#fff">';
+  h += '<option value="arrival"'+(P.dateField==='arrival'?' selected':'')+'>Arrival date</option>';
+  h += '<option value="dispatch"'+(P.dateField==='dispatch'?' selected':'')+'>Dispatch date (archived only)</option>';
+  h += '</select></div>';
+  h += '</div>';
+
+  // ----- Controls row 2: date range + presets -----
+  h += '<div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px">';
+  h += '<div><label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;font-weight:600;margin-bottom:4px">From date</label>';
+  h += '<input type="date" id="pv-from" value="'+P.from+'" data-act="pivotChangeDim" data-key="pv-from" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;font-family:inherit"/></div>';
+  h += '<div><label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;font-weight:600;margin-bottom:4px">To date</label>';
+  h += '<input type="date" id="pv-to" value="'+P.to+'" data-act="pivotChangeDim" data-key="pv-to" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;font-family:inherit"/></div>';
+  h += '<div style="display:flex;gap:6px">';
+  h += '<button class="edit-btn" data-act="pivotPreset" data-val="month" style="font-size:11px">This month</button>';
+  h += '<button class="edit-btn" data-act="pivotPreset" data-val="fy" style="font-size:11px">This FY</button>';
+  h += '<button class="edit-btn" data-act="pivotPreset" data-val="all" style="font-size:11px">All time</button>';
+  h += '</div>';
+  h += '<div style="margin-left:auto;display:flex;gap:6px">';
+  h += '<button class="edit-btn" data-act="pivotExport" style="font-size:11px;color:#15803d;border-color:#86efac">⤓ Export CSV</button>';
+  h += '<button class="edit-btn" data-act="pivotReset" style="font-size:11px;color:#991b1b">Reset</button>';
+  h += '</div>';
+  h += '</div>';
+
+  // ----- Filter chips: show active dimension filters -----
+  var anyFilter = false;
+  Object.keys(P.filters).forEach(function(k){ if(P.filters[k] && P.filters[k].length) anyFilter = true; });
+  h += '<div style="padding:10px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;margin-bottom:14px;font-size:11px">';
+  h += '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">';
+  h += '<b style="color:#9a3412">Filters:</b>';
+  if(!anyFilter){
+    h += '<span style="color:#9a3412;font-style:italic">none — showing all data in the date range</span>';
+  } else {
+    Object.keys(P.filters).forEach(function(k){
+      var vals = P.filters[k];
+      if(!vals || !vals.length) return;
+      var dl = PIVOT_DIMS[k] ? PIVOT_DIMS[k].label : k;
+      h += '<span style="background:#fff;border:1px solid #fdba74;padding:3px 8px;border-radius:12px"><b>'+dl+':</b> '+vals.join(', ')+' <a href="#" data-act="pivotClearFilter" data-key="'+k+'" style="color:#dc2626;text-decoration:none;margin-left:6px;font-weight:600">×</a></span>';
+    });
+  }
+  h += '<button class="edit-btn" data-act="pivotOpenFilter" style="font-size:11px;margin-left:auto">+ Add filter</button>';
+  h += '</div>';
+  h += '</div>';
+
+  // ===== PIVOT TABLE =====
+  if(rowKeys.length === 0 || colKeys.length === 0){
+    h += '<div style="font-size:12px;color:#94a3b8;font-style:italic;padding:14px 0;text-align:center">No data matches the current filters. Try widening the date range or changing the dimensions.</div>';
+  } else {
+    // Compute totals
+    var colTotals = {}; colKeys.forEach(function(c){ colTotals[c] = 0; });
+    var grandTotal = 0;
+    rowKeys.forEach(function(rk){
+      colKeys.forEach(function(ck){
+        var ct = (cells[rk] && cells[rk][ck]) ? cells[rk][ck].length : 0;
+        colTotals[ck] += ct;
+        grandTotal += ct;
+      });
+    });
+
+    h += '<div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:6px">';
+    h += '<table style="width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums">';
+    // Header row
+    h += '<thead><tr style="background:#0f172a;color:#fff">';
+    h += '<th style="text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.04em">'+rowDim.label+'</th>';
+    colKeys.forEach(function(ck){
+      h += '<th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;min-width:80px">'+ck+'</th>';
+    });
+    h += '<th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;background:#475569">Total</th>';
+    h += '</tr></thead><tbody>';
+    rowKeys.forEach(function(rk, rIdx){
+      var rowTotal = 0;
+      var rowCells = [];
+      colKeys.forEach(function(ck){
+        var ids = (cells[rk] && cells[rk][ck]) || [];
+        var ct = ids.length;
+        rowTotal += ct;
+        if(ct > 0){
+          rowCells.push('<td style="padding:8px 12px;text-align:center;border-top:1px solid #f1f5f9;cursor:pointer;font-weight:600" data-act="pivotDrill" data-key="'+rk+'|||'+ck+'" title="Click to see wheelsets"><span style="color:#2563eb">'+ct+'</span></td>');
+        } else {
+          rowCells.push('<td style="padding:8px 12px;text-align:center;border-top:1px solid #f1f5f9;color:#cbd5e1">·</td>');
+        }
+      });
+      h += '<tr'+(rIdx%2===0?'':' style="background:#fafbfc"')+'>';
+      h += '<td style="padding:8px 12px;font-weight:600;color:#0f172a;border-top:1px solid #f1f5f9;border-right:1px solid #e2e8f0">'+rk+'</td>';
+      h += rowCells.join('');
+      h += '<td style="padding:8px 12px;text-align:center;border-top:1px solid #f1f5f9;background:#f1f5f9;font-weight:700">'+rowTotal+'</td>';
+      h += '</tr>';
+    });
+    // Totals row
+    h += '<tr style="background:#0f172a;color:#fff">';
+    h += '<td style="padding:10px 12px;font-weight:700;text-transform:uppercase;font-size:11px;letter-spacing:.04em">Total</td>';
+    colKeys.forEach(function(ck){
+      h += '<td style="padding:10px 12px;text-align:center;font-weight:700">'+colTotals[ck]+'</td>';
+    });
+    h += '<td style="padding:10px 12px;text-align:center;font-weight:700;background:#475569">'+grandTotal+'</td>';
+    h += '</tr>';
+    h += '</tbody></table></div>';
+
+    h += '<div style="font-size:11px;color:#64748b;margin-top:8px;font-style:italic">Click any number to see the wheelsets in that cell.</div>';
+  }
+
+  h += '</div>';
+
+  wrap.innerHTML = h;
+}
+
+// Drill into a single pivot cell: rowKey + colKey
+function showPivotDrill(rowKey, colKey){
+  var cells = window._pivotCells || {};
+  var ids = (cells[rowKey] && cells[rowKey][colKey]) || [];
+  var title = rowKey + (colKey !== 'All' ? ' × ' + colKey : '');
+  showRangeDrill_fromIds(title, ids);
+}
+
+// Generic drill-list modal: title + wheelset IDs. Reuses rr-drill-modal DOM.
+function showRangeDrill_fromIds(title, ids){
+  var ALLWS = {};
+  Object.keys(WS).forEach(function(id){ ALLWS[id] = WS[id]; });
+  Object.keys(ARCHIVE).forEach(function(id){ if(!ALLWS[id]) ALLWS[id] = ARCHIVE[id]; });
+
+  var h = '';
+  h += '<div class="modal-ttl">'+title+'</div>';
+  h += '<div class="modal-sub">'+ids.length+' wheelset(s)</div>';
+  if(ids.length === 0){
+    h += '<div style="font-size:12px;color:#94a3b8;font-style:italic;padding:14px 0">No wheelsets.</div>';
+  } else {
+    h += '<div style="max-height:55vh;overflow:auto;border:1px solid #e2e8f0;border-radius:6px">';
+    h += '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+    h += '<thead><tr style="background:#f8fafc;position:sticky;top:0"><th style="text-align:left;padding:8px 12px;font-size:10px;text-transform:uppercase;color:#64748b">Wheelset</th><th style="text-align:left;padding:8px 12px;font-size:10px;text-transform:uppercase;color:#64748b">Coach</th><th style="text-align:left;padding:8px 12px;font-size:10px;text-transform:uppercase;color:#64748b">Bogie</th><th style="text-align:left;padding:8px 12px;font-size:10px;text-transform:uppercase;color:#64748b">Case</th><th style="text-align:left;padding:8px 12px;font-size:10px;text-transform:uppercase;color:#64748b">Status</th></tr></thead><tbody>';
+    var seen = {};
+    ids.forEach(function(id){
+      if(seen[id]) return; seen[id] = true;
+      var w = ALLWS[id] || {};
+      var caseLbl = w.case ? ('Case '+w.case) : '—';
+      var status = ARCHIVE[id] ? (ARCHIVE[id].disposition==='disassembled'?'Disassembled':'Dispatched'+(ARCHIVE[id].dispatchDest?' · '+ARCHIVE[id].dispatchDest:'')) : ('Active · '+(M_LABEL[w.loc]||w.loc||'?'));
+      h += '<tr style="border-top:1px solid #f1f5f9">';
+      h += '<td style="padding:8px 12px;font-weight:600;color:#0f172a">'+id+'</td>';
+      h += '<td style="padding:8px 12px;color:#475569">'+(w.c||'—')+'</td>';
+      h += '<td style="padding:8px 12px;color:#475569">'+(w.b||'—')+'</td>';
+      h += '<td style="padding:8px 12px;color:#475569">'+caseLbl+'</td>';
+      h += '<td style="padding:8px 12px;color:#475569">'+status+'</td>';
+      h += '</tr>';
+    });
+    h += '</tbody></table></div>';
+  }
+  h += '<div class="mbtns"><button class="mbtn" data-act="closeRrDrill" type="button">Close</button></div>';
+
+  var modal = document.getElementById('rr-drill-modal');
+  document.getElementById('rr-drill-modal-content').innerHTML = h;
+  modal.classList.add('on');
+}
+
+// Filter picker modal — lets user choose which values of a dimension to include
+function showPivotFilterPicker(){
+  var P = window._pivot;
+  if(!P) return;
+  // Compute all available values for each dimension from the current data set (date-filtered)
+  var records = [];
+  Object.keys(WS).forEach(function(id){ records.push({id:id, w:WS[id], isArchived:false, archive:null}); });
+  Object.keys(ARCHIVE).forEach(function(id){ records.push({id:id, w:ARCHIVE[id], isArchived:true, archive:ARCHIVE[id]}); });
+  var fromTs = new Date(P.from+'T00:00:00').getTime(), toTs = new Date(P.to+'T23:59:59').getTime();
+  var filtered = records.filter(function(r){
+    var ts = (P.dateField === 'arrival') ? r.w.arTs : (r.isArchived ? r.archive.dispatchedAt : null);
+    if(!ts) return false;
+    return ts >= fromTs && ts <= toTs;
+  });
+
+  var dimsForFilter = ['case','ohType','status','station','bogie'];
+
+  var h = '';
+  h += '<div class="modal-ttl">Add / edit filters</div>';
+  h += '<div class="modal-sub">Restrict the pivot to wheelsets matching these values.</div>';
+  h += '<div style="max-height:55vh;overflow:auto">';
+
+  dimsForFilter.forEach(function(dk){
+    var dim = PIVOT_DIMS[dk];
+    var valsSet = {};
+    filtered.forEach(function(r){
+      var v = dim.getter(r.w, r);
+      if(v != null) valsSet[v] = true;
+    });
+    var vals = dim.order(Object.keys(valsSet));
+    var current = P.filters[dk] || [];
+    h += '<div style="border:1px solid #e2e8f0;border-radius:5px;padding:10px;margin-bottom:8px">';
+    h += '<div style="font-size:12px;font-weight:600;color:#0f172a;margin-bottom:8px">'+dim.label+'</div>';
+    if(vals.length === 0){
+      h += '<div style="font-size:11px;color:#94a3b8;font-style:italic">No values in current date range.</div>';
+    } else {
+      h += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
+      vals.forEach(function(v){
+        var checked = current.indexOf(v) >= 0;
+        h += '<label style="display:inline-flex;align-items:center;gap:5px;font-size:11px;background:'+(checked?'#dbeafe':'#f8fafc')+';border:1px solid '+(checked?'#3b82f6':'#cbd5e1')+';padding:4px 9px;border-radius:12px;cursor:pointer">';
+        h += '<input type="checkbox" data-pv-filter-dim="'+dk+'" data-pv-filter-val="'+escapeHtml(v)+'"'+(checked?' checked':'')+' style="margin:0"/> '+escapeHtml(v);
+        h += '</label>';
+      });
+      h += '</div>';
+    }
+    h += '</div>';
+  });
+
+  h += '</div>';
+  h += '<div class="mbtns">';
+  h += '<button class="mbtn" data-act="closePivotFilter" type="button">Cancel</button>';
+  h += '<button class="mbtn pri" data-act="applyPivotFilter" type="button">Apply filters</button>';
+  h += '</div>';
+
+  var modal = document.getElementById('pivot-filter-modal');
+  document.getElementById('pivot-filter-modal-content').innerHTML = h;
+  modal.classList.add('on');
+}
+
+// Build CSV from the current pivot table and trigger download
+function exportPivotCSV(){
+  var P = window._pivot; if(!P) return;
+  var cells = window._pivotCells || {};
+  var rowDim = PIVOT_DIMS[P.rowDim], colDim = PIVOT_DIMS[P.colDim];
+  var rowKeys = rowDim.order(Object.keys(cells));
+  // Get all colKeys
+  var ckSet = {};
+  rowKeys.forEach(function(rk){ Object.keys(cells[rk]||{}).forEach(function(ck){ ckSet[ck]=true; }); });
+  var colKeys = colDim.order(Object.keys(ckSet));
+  var lines = [];
+  lines.push([rowDim.label].concat(colKeys).concat(['Total']).map(csvCell).join(','));
+  var colTotals = {}; colKeys.forEach(function(c){ colTotals[c]=0; }); var grand=0;
+  rowKeys.forEach(function(rk){
+    var row=[rk]; var rt=0;
+    colKeys.forEach(function(ck){
+      var ct=((cells[rk]||{})[ck]||[]).length;
+      row.push(ct); rt+=ct; colTotals[ck]+=ct; grand+=ct;
+    });
+    row.push(rt);
+    lines.push(row.map(csvCell).join(','));
+  });
+  var totalRow = ['Total'];
+  colKeys.forEach(function(c){ totalRow.push(colTotals[c]); });
+  totalRow.push(grand);
+  lines.push(totalRow.map(csvCell).join(','));
+  var blob = new Blob([lines.join('\n')], {type:'text/csv'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = 'pivot_'+P.from+'_to_'+P.to+'.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function csvCell(v){ var s=String(v==null?'':v); if(s.indexOf(',')>=0||s.indexOf('"')>=0||s.indexOf('\n')>=0){ s='"'+s.replace(/"/g,'""')+'"'; } return s; }
+
 // ========== ANALYTICS TAB ==========
 function renderAnalytics(){
   var wrap = document.getElementById('analytics-content');
@@ -3161,7 +3622,7 @@ function renderAnalytics(){
 
 function switchTab(tabName){
   currentTab = tabName;
-  ['ops','history','analytics'].forEach(function(t){
+  ['ops','history','analytics','pivot'].forEach(function(t){
     var pane = document.getElementById('pane-'+t);
     var btn = document.querySelector('.tab[data-tab="'+t+'"]');
     if(pane) pane.hidden = (t !== tabName);
@@ -3169,6 +3630,7 @@ function switchTab(tabName){
   });
   if(tabName === 'history') renderHistoryDispatch();
   else if(tabName === 'analytics') renderAnalytics();
+  else if(tabName === 'pivot') renderPivot();
 }
 
 function refresh(){
@@ -4219,7 +4681,7 @@ var Actions = {
       if(nxt === 'wheelPress') ws.wpPhase = 'arrived';
       ws.d = 'just arrived';
       ws.t = 'In progress at ' + M_LABEL[nxt];
-      logEvent(wsId, 'adv', 'Advanced from '+M_LABEL[oldStage]+' → '+M_LABEL[nxt], undoData);
+      logEvent(wsId, 'adv', 'Advanced from '+M_LABEL[oldStage]+' → '+M_LABEL[nxt], undoData, {fromLoc:oldStage, toLoc:nxt, case:ws.case||null});
       toast(wsId + ' → ' + M_LABEL[nxt]);
       fullRefresh();
     });
@@ -4429,7 +4891,7 @@ var Actions = {
       ws.loc = 'dispatch';
       ws.t = 'Insp-3 complete · ready for FFS release';
       ws.d = 'just arrived';
-      logEvent(wsId, 'adv', 'Advanced from Inspection-3 → Dispatch');
+      logEvent(wsId, 'adv', 'Advanced from Inspection-3 → Dispatch', null, {fromLoc:'insp3', toLoc:'dispatch', case:ws.case||null});
       toast(wsId + ' advanced to Dispatch');
       fullRefresh();
     });
@@ -4494,7 +4956,7 @@ var Actions = {
       var msg = 'Inspection: '+cs.label+(defectList.length?' — defective: '+defectList.join(', '):' — all serviceable');
       logEvent(wsId, 'ins', msg, undoData);
       // Also emit an adv event so the timeline parser sees the transition
-      logEvent(wsId, 'adv', 'Advanced from '+oldLocLabel+' → '+M_LABEL[ws.loc]);
+      logEvent(wsId, 'adv', 'Advanced from '+oldLocLabel+' → '+M_LABEL[ws.loc], null, {fromLoc:undoData.oldLoc, toLoc:ws.loc, case:cs.code});
       toast(wsId + ' ' + cs.label + ' → ' + M_LABEL[ws.loc]);
       fullRefresh();
     });
@@ -5345,13 +5807,14 @@ var Actions = {
 
       // Advance to next stage immediately (no axle mutation here — that happens at WP).
       var oldLocLabel = M_LABEL[ws.loc] || ws.loc;
+      var _i2FromLoc = ws.loc;
       ws.loc = nxt;
       if(nxt === 'wheelPress') ws.wpPhase = 'arrived';
       var outcomeLabel = decision === 'ok' ? 'OK' : (decision === 'ajtb' ? 'Needs AJTB' : 'Defective');
       ws.t = 'Insp-2 done · axle ' + outcomeLabel + ' · at ' + nextLabel;
       ws.d = 'just arrived';
       logEvent(wsId, 'ins', 'Insp-2: axle ' + outcomeLabel + ' (Side A journal ' + jdA + ' mm, shoulder ' + sdA + ' mm; Side B journal ' + jdB + ' mm, shoulder ' + sdB + ' mm)', undoData);
-      logEvent(wsId, 'adv', 'Advanced from '+oldLocLabel+' → '+nextLabel);
+      logEvent(wsId, 'adv', 'Advanced from '+oldLocLabel+' → '+nextLabel, null, {fromLoc:_i2FromLoc, toLoc:nxt, case:ws.case||null});
       toast(wsId + ' axle ' + outcomeLabel + ' · advanced to ' + nextLabel);
       fullRefresh();
     });
@@ -5478,6 +5941,95 @@ var Actions = {
     if(isNaN(v)) return;
     window._selectedDispatchFy = v;
     renderAnalytics();
+  },
+
+  // ===== PIVOT TAB HANDLERS =====
+  pivotChangeDim: function(_, extra){
+    var key = extra && extra.key;
+    if(!key) return;
+    var el = document.getElementById(key);
+    if(!el) return;
+    var v = el.value;
+    if(!window._pivot) return;
+    if(key === 'pv-row') window._pivot.rowDim = v;
+    else if(key === 'pv-col') window._pivot.colDim = v;
+    else if(key === 'pv-datefield') window._pivot.dateField = v;
+    else if(key === 'pv-from') window._pivot.from = v;
+    else if(key === 'pv-to') window._pivot.to = v;
+    renderPivot();
+  },
+
+  pivotPreset: function(_, extra){
+    var val = extra && extra.val;
+    var nd = new Date();
+    var from, to = nd.toISOString().slice(0,10);
+    if(val === 'month'){
+      from = new Date(nd.getFullYear(), nd.getMonth(), 1).toISOString().slice(0,10);
+    } else if(val === 'fy'){
+      var fyStart = nd.getMonth() >= 3 ? nd.getFullYear() : (nd.getFullYear() - 1);
+      from = new Date(fyStart, 3, 1).toISOString().slice(0,10);
+    } else { // all
+      from = '2020-01-01';
+    }
+    if(!window._pivot) return;
+    window._pivot.from = from;
+    window._pivot.to = to;
+    renderPivot();
+  },
+
+  pivotDrill: function(_, extra){
+    var key = extra && extra.key;
+    if(!key) return;
+    var parts = key.split('|||');
+    if(parts.length !== 2) return;
+    showPivotDrill(parts[0], parts[1]);
+  },
+
+  pivotOpenFilter: function(){
+    showPivotFilterPicker();
+  },
+
+  closePivotFilter: function(){
+    var m = document.getElementById('pivot-filter-modal');
+    if(m) m.classList.remove('on');
+  },
+
+  applyPivotFilter: function(){
+    if(!window._pivot) return;
+    var newFilters = {};
+    var checks = document.querySelectorAll('#pivot-filter-modal-content input[type="checkbox"][data-pv-filter-dim]');
+    checks.forEach(function(c){
+      if(!c.checked) return;
+      var d = c.getAttribute('data-pv-filter-dim');
+      var v = c.getAttribute('data-pv-filter-val');
+      if(!newFilters[d]) newFilters[d] = [];
+      newFilters[d].push(v);
+    });
+    window._pivot.filters = newFilters;
+    var m = document.getElementById('pivot-filter-modal');
+    if(m) m.classList.remove('on');
+    renderPivot();
+  },
+
+  pivotClearFilter: function(_, extra){
+    var key = extra && extra.key;
+    if(!key || !window._pivot || !window._pivot.filters) return;
+    delete window._pivot.filters[key];
+    renderPivot();
+  },
+
+  pivotReset: function(){
+    window._pivot = null;
+    renderPivot();
+  },
+
+  pivotExport: function(){
+    exportPivotCSV();
+  },
+
+  closeRrDrill: function(){
+    var m = document.getElementById('rr-drill-modal');
+    if(m) m.classList.remove('on');
   },
 
   // Open a modal listing every wheelset dispatched in a particular FY month.
@@ -5653,7 +6205,7 @@ var Actions = {
     ARCHIVE[wsId] = snapshot;
     delete WS[wsId];
     delete EXPANDED[wsId];
-    logEvent(wsId, 'adv', 'Fit-for-service certified · dispatched to '+dest+' (bogie '+bogie+', date '+dispatchLabel+')', undoData);
+    logEvent(wsId, 'adv', 'Fit-for-service certified · dispatched to '+dest+' (bogie '+bogie+', date '+dispatchLabel+')', undoData, {fromLoc:'dispatch', toLoc:'__dispatched', case:ws.case||null, dispatchType:dest, dispatchTs:dispatchTs});
     toast(wsId + ' dispatched to '+dest+' and archived');
     window._pendingDispatchWsId = null;
     fullRefresh();
@@ -6105,7 +6657,8 @@ document.addEventListener('click', function(e){
         val: actBtn.getAttribute('data-val'),
         bucket: actBtn.getAttribute('data-bucket'),
         itemid: actBtn.getAttribute('data-itemid'),
-        eidx: actBtn.getAttribute('data-eidx')
+        eidx: actBtn.getAttribute('data-eidx'),
+        key: actBtn.getAttribute('data-key')
       };
       if(Actions[act]){ Actions[act](wsId, extra); }
       return;
@@ -6161,7 +6714,10 @@ document.addEventListener('change', function(e){
   var wsId = inp.getAttribute('data-ws');
   var extra = {
     comp: inp.getAttribute('data-comp'),
-    val: inp.value
+    val: inp.value,
+    key: inp.getAttribute('data-key'),
+    bucket: inp.getAttribute('data-bucket'),
+    itemid: inp.getAttribute('data-itemid')
   };
   if(Actions[act]){ Actions[act](wsId, extra); }
 });
@@ -6388,7 +6944,7 @@ document.getElementById('m-save').addEventListener('click', function(){
   // Use logEvent so it lands in BOTH the per-ws log and GLOBAL_LOG (timeline needs the latter)
   var regMsg = 'Registered at Entry with axle '+axle+', WD A '+wA+', WD B '+wB+', BD A '+bdA+', BD B '+bdB+', CTRB A '+ctA+', CTRB B '+ctB;
   if(isBackdated){ regMsg += ' (backdated arrival: '+arrivalLabel+')'; }
-  logEvent(id, 'reg', regMsg);
+  logEvent(id, 'reg', regMsg, null, {received:true, arrivalTs:arrivalTs});
   // Per-component first-seen events
   logComponent(axle, 'first_seen', {where:id+' · Axle position', wsId:id, pos:'axle', note:'Arrived on wheelset at registration'});
   logComponent(wA, 'first_seen', {where:id+' · Wheel disc A', wsId:id, pos:'wheelA', note:'Arrived on wheelset at registration'});
@@ -6439,6 +6995,452 @@ if(exportBtn) exportBtn.addEventListener('click', function(){
     }
   }, 0);
 });
+
+// =========================================================================
+// BACKUP & RESTORE (v69) — push the full local state to a Google Sheet
+// (via an Apps Script Web App) so it can be restored after a data-loss event.
+// Designed to be independent of Firestore: even if cloud is wiped, the
+// Sheet retains a history of full-state snapshots.
+// =========================================================================
+
+// User configures the Apps Script Web App URL once; saved in localStorage so
+// every device on the same browser remembers it.
+function getBackupUrl(){ return localStorage.getItem('wst6_backup_url') || ''; }
+function setBackupUrl(u){ if(u) localStorage.setItem('wst6_backup_url', u); else localStorage.removeItem('wst6_backup_url'); }
+
+// Auto-backup interval (minutes). 0 = off.
+function getAutoBackupMin(){ var v = parseInt(localStorage.getItem('wst6_backup_auto') || '60'); return isNaN(v) ? 60 : v; }
+function setAutoBackupMin(v){ localStorage.setItem('wst6_backup_auto', String(v)); }
+
+// Build a single state snapshot.
+function buildBackupSnapshot(label){
+  return {
+    schema: 'wheelshop-v1',
+    label: label || ('manual ' + now()),
+    ts: Date.now(),
+    tsStr: new Date().toISOString(),
+    device: (typeof DEVICE_ID !== 'undefined' ? DEVICE_ID : 'unknown'),
+    counts: {
+      wheelsets: Object.keys(WS||{}).length,
+      archive: Object.keys(ARCHIVE||{}).length,
+      pool_ax: (POOL.ax.r||[]).length + (POOL.ax.n||[]).length + (POOL.ax.c||[]).length,
+      pool_wd: (POOL.wd.r||[]).length + (POOL.wd.n||[]).length + (POOL.wd.c||[]).length,
+      pool_bd: (POOL.bd.r||[]).length + (POOL.bd.n||[]).length + (POOL.bd.c||[]).length,
+      pool_ct: (POOL.ct.r||[]).length + (POOL.ct.n||[]).length + (POOL.ct.w||[]).length + (POOL.ct.c||[]).length,
+      events: (GLOBAL_LOG||[]).length
+    },
+    state: {
+      WS: WS,
+      POOL: POOL,
+      ARCHIVE: ARCHIVE,
+      GLOBAL_LOG: (GLOBAL_LOG||[]).slice(0, 2000),
+      COMPONENT_LOG: COMPONENT_LOG,
+      OPERATORS: OPERATORS,
+      ATL_WIP: ATL_WIP, VTL_WIP: VTL_WIP,
+      SHIFT: SHIFT
+    }
+  };
+}
+
+// Push a snapshot to the Apps Script Web App.
+// Apps Script Web Apps don't return CORS-friendly responses unless explicitly
+// configured, so we send as form-encoded text and use a no-cors-friendly path.
+function pushBackup(label){
+  return new Promise(function(resolve, reject){
+    var url = getBackupUrl();
+    if(!url){ reject(new Error('Backup URL not configured')); return; }
+    var snap = buildBackupSnapshot(label);
+    var payload = 'action=backup&payload=' + encodeURIComponent(JSON.stringify(snap));
+    fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: payload,
+      redirect: 'follow'
+    }).then(function(r){
+      return r.json();
+    }).then(function(j){
+      if(j && j.ok){
+        localStorage.setItem('wst6_backup_last', String(snap.ts));
+        resolve(j);
+      } else {
+        reject(new Error((j && j.error) || 'Backup failed'));
+      }
+    }).catch(function(err){ reject(err); });
+  });
+}
+
+// List backups from the Apps Script Web App.
+function listBackups(){
+  return new Promise(function(resolve, reject){
+    var url = getBackupUrl();
+    if(!url){ reject(new Error('Backup URL not configured')); return; }
+    // Use GET with action=list (Apps Script accepts query params on doGet)
+    fetch(url + (url.indexOf('?')>=0?'&':'?') + 'action=list', {method:'GET', redirect:'follow'})
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        if(j && j.ok) resolve(j.backups || []);
+        else reject(new Error((j && j.error) || 'List failed'));
+      })
+      .catch(function(err){ reject(err); });
+  });
+}
+
+// Fetch a specific backup snapshot by row id and apply it to local + cloud state.
+function restoreBackup(rowId){
+  return new Promise(function(resolve, reject){
+    var url = getBackupUrl();
+    if(!url){ reject(new Error('Backup URL not configured')); return; }
+    fetch(url + (url.indexOf('?')>=0?'&':'?') + 'action=get&row=' + encodeURIComponent(rowId), {method:'GET', redirect:'follow'})
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        if(!j || !j.ok || !j.snapshot){ reject(new Error((j && j.error) || 'Restore failed')); return; }
+        try {
+          applyBackupSnapshot(j.snapshot);
+          resolve(j.snapshot);
+        } catch(e){ reject(e); }
+      })
+      .catch(function(err){ reject(err); });
+  });
+}
+
+// Apply a snapshot to local state, persist to localStorage, and push to cloud.
+function applyBackupSnapshot(snap){
+  var s = snap.state || {};
+  if(s.WS && typeof s.WS === 'object') WS = s.WS;
+  if(s.POOL && typeof s.POOL === 'object') POOL = s.POOL;
+  if(s.ARCHIVE && typeof s.ARCHIVE === 'object') ARCHIVE = s.ARCHIVE;
+  if(Array.isArray(s.GLOBAL_LOG)) GLOBAL_LOG = s.GLOBAL_LOG;
+  if(s.COMPONENT_LOG && typeof s.COMPONENT_LOG === 'object') COMPONENT_LOG = s.COMPONENT_LOG;
+  if(s.OPERATORS && typeof s.OPERATORS === 'object'){
+    OPERATORS = s.OPERATORS;
+    Object.keys(OPERATORS).forEach(function(k){ if(M[k]) M[k].op = OPERATORS[k]; });
+  }
+  if(Array.isArray(s.ATL_WIP)) ATL_WIP = s.ATL_WIP;
+  if(Array.isArray(s.VTL_WIP)) VTL_WIP = s.VTL_WIP;
+  if(s.SHIFT) SHIFT = s.SHIFT;
+  // Persist & push to cloud (saveState handles both)
+  saveState();
+  fullRefresh();
+}
+
+// =====================  BACKUP MODAL UI  =====================
+function openBackupModal(){
+  renderBackupModal();
+  document.getElementById('backup-modal').classList.add('on');
+}
+function closeBackupModal(){
+  var m = document.getElementById('backup-modal');
+  if(m) m.classList.remove('on');
+}
+
+function renderBackupModal(extra){
+  var url = getBackupUrl();
+  var autoMin = getAutoBackupMin();
+  var lastTs = parseInt(localStorage.getItem('wst6_backup_last') || '0');
+  var lastStr = lastTs ? new Date(lastTs).toLocaleString() : '(never)';
+  var h = '';
+  h += '<div class="modal-ttl">🛡 Backup &amp; Restore</div>';
+  h += '<div class="modal-sub">Periodic full-state snapshots to Google Sheets, so data can be restored after any loss.</div>';
+
+  // --- Setup section ---
+  h += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:14px;margin-bottom:14px">';
+  h += '<div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:8px">1. Google Sheets endpoint</div>';
+  h += '<input type="text" id="bk-url" placeholder="https://script.google.com/macros/s/AKfy.../exec" value="'+escapeHtml(url)+'" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;font-family:monospace"/>';
+  h += '<div style="font-size:11px;color:#64748b;margin-top:6px">Paste the Web App URL from your Apps Script deployment. <a href="#" data-act="showBackupSetup" style="color:#2563eb">How to set this up →</a></div>';
+  h += '<div style="display:flex;gap:8px;margin-top:10px">';
+  h += '<button class="mbtn pri" data-act="saveBackupUrl" style="font-size:12px">Save URL</button>';
+  h += '<button class="mbtn" data-act="testBackupUrl" style="font-size:12px">Test connection</button>';
+  h += '</div>';
+  if(extra && extra.testResult){
+    h += '<div style="font-size:11px;margin-top:8px;color:'+(extra.testResult.ok?'#15803d':'#dc2626')+'">'+escapeHtml(extra.testResult.msg)+'</div>';
+  }
+  h += '</div>';
+
+  // --- Auto backup section ---
+  h += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:14px;margin-bottom:14px">';
+  h += '<div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:8px">2. Auto backup interval</div>';
+  h += '<div style="display:flex;gap:8px;align-items:center;font-size:12px">';
+  ['0','15','30','60','120','240'].forEach(function(m){
+    var lbl = m === '0' ? 'Off' : (m+' min');
+    var sel = parseInt(m) === autoMin;
+    h += '<button class="edit-btn" data-act="setBackupAuto" data-val="'+m+'" style="font-size:11px;'+(sel?'background:#0f172a;color:#fff;border-color:#0f172a':'')+'">'+lbl+'</button>';
+  });
+  h += '</div>';
+  h += '<div style="font-size:11px;color:#64748b;margin-top:8px">Last backup: '+lastStr+'</div>';
+  h += '</div>';
+
+  // --- Manual backup section ---
+  h += '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:14px;margin-bottom:14px">';
+  h += '<div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:8px">3. Backup now</div>';
+  h += '<div style="display:flex;gap:8px;align-items:center">';
+  h += '<input type="text" id="bk-label" placeholder="Optional label (e.g. before re-pinning)" style="flex:1;padding:7px 10px;border:1px solid #86efac;border-radius:5px;font-size:12px"/>';
+  h += '<button class="mbtn pri" data-act="doBackupNow" style="font-size:12px;background:#15803d">⤴ Backup now</button>';
+  h += '</div>';
+  if(extra && extra.backupResult){
+    h += '<div style="font-size:11px;margin-top:8px;color:'+(extra.backupResult.ok?'#15803d':'#dc2626')+'">'+escapeHtml(extra.backupResult.msg)+'</div>';
+  }
+  h += '</div>';
+
+  // --- Restore section ---
+  h += '<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:14px;margin-bottom:14px">';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+  h += '<div style="font-size:12px;font-weight:700;color:#0f172a">4. Restore from a previous backup</div>';
+  h += '<button class="edit-btn" data-act="refreshBackupList" style="font-size:11px">↻ Refresh list</button>';
+  h += '</div>';
+  if(!url){
+    h += '<div style="font-size:11px;color:#9a3412;font-style:italic">Configure the Sheets URL first.</div>';
+  } else if(!extra || !extra.list){
+    h += '<div style="font-size:11px;color:#9a3412;font-style:italic">Click <b>Refresh list</b> to load backups from the sheet.</div>';
+  } else if(extra.listError){
+    h += '<div style="font-size:11px;color:#dc2626">'+escapeHtml(extra.listError)+'</div>';
+  } else if(extra.list.length === 0){
+    h += '<div style="font-size:11px;color:#9a3412;font-style:italic">No backups in the sheet yet.</div>';
+  } else {
+    h += '<div style="max-height:240px;overflow:auto;border:1px solid #fdba74;border-radius:5px;background:#fff">';
+    h += '<table style="width:100%;border-collapse:collapse;font-size:11px">';
+    h += '<thead><tr style="background:#fff7ed;position:sticky;top:0"><th style="text-align:left;padding:6px 10px;font-size:10px;text-transform:uppercase;color:#9a3412">When</th><th style="text-align:left;padding:6px 10px;font-size:10px;text-transform:uppercase;color:#9a3412">Label</th><th style="text-align:right;padding:6px 10px;font-size:10px;text-transform:uppercase;color:#9a3412">WS</th><th style="text-align:right;padding:6px 10px;font-size:10px;text-transform:uppercase;color:#9a3412">Archive</th><th style="text-align:right;padding:6px 10px;font-size:10px;text-transform:uppercase;color:#9a3412">Events</th><th style="padding:6px 10px"></th></tr></thead><tbody>';
+    extra.list.forEach(function(b){
+      h += '<tr style="border-top:1px solid #fed7aa">';
+      h += '<td style="padding:6px 10px;color:#0f172a">'+escapeHtml(b.tsStr||'')+'</td>';
+      h += '<td style="padding:6px 10px;color:#475569">'+escapeHtml(b.label||'')+'</td>';
+      h += '<td style="padding:6px 10px;text-align:right;font-variant-numeric:tabular-nums">'+(b.counts&&b.counts.wheelsets!=null?b.counts.wheelsets:'?')+'</td>';
+      h += '<td style="padding:6px 10px;text-align:right;font-variant-numeric:tabular-nums">'+(b.counts&&b.counts.archive!=null?b.counts.archive:'?')+'</td>';
+      h += '<td style="padding:6px 10px;text-align:right;font-variant-numeric:tabular-nums">'+(b.counts&&b.counts.events!=null?b.counts.events:'?')+'</td>';
+      h += '<td style="padding:6px 10px;text-align:right"><button class="edit-btn" data-act="doRestore" data-val="'+escapeHtml(String(b.row))+'" style="font-size:10px;color:#9a3412;border-color:#fdba74">Restore</button></td>';
+      h += '</tr>';
+    });
+    h += '</tbody></table></div>';
+    h += '<div style="font-size:10px;color:#9a3412;margin-top:6px;font-style:italic">Restoring will overwrite the current dashboard with the selected backup. The current state is auto-backed-up first as a safety net.</div>';
+  }
+  h += '</div>';
+
+  // --- Setup help (toggle) ---
+  if(extra && extra.showSetup){
+    h += '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:14px;margin-bottom:14px;font-size:11px;line-height:1.6">';
+    h += '<div style="font-size:12px;font-weight:700;color:#1e3a8a;margin-bottom:8px">Setup steps</div>';
+    h += '<ol style="margin:0;padding-left:18px;color:#1e3a8a">';
+    h += '<li>Open <a href="https://script.google.com/home/projects/create" target="_blank" style="color:#2563eb">Apps Script</a> and create a new project.</li>';
+    h += '<li>Paste the Apps Script code (click <a href="#" data-act="showBackupCode" style="color:#2563eb">show code</a>) and save.</li>';
+    h += '<li>Click <b>Deploy → New deployment → Type: Web app</b>. Set <b>Execute as: Me</b>, <b>Who has access: Anyone</b>. Authorize when asked.</li>';
+    h += '<li>Copy the deployment URL ending in <code>/exec</code> and paste it in box 1 above.</li>';
+    h += '<li>Click <b>Save URL</b>, then <b>Test connection</b> — you should see a green confirmation.</li>';
+    h += '<li>The script creates a Google Sheet automatically the first time you backup. Find it in your Google Drive.</li>';
+    h += '</ol></div>';
+  }
+  if(extra && extra.showCode){
+    h += '<div style="background:#0f172a;border-radius:6px;padding:12px;margin-bottom:14px;font-size:10px;color:#e2e8f0;font-family:monospace;max-height:240px;overflow:auto;white-space:pre-wrap">';
+    h += escapeHtml(APPS_SCRIPT_CODE);
+    h += '</div>';
+    h += '<button class="mbtn" data-act="copyAppsScript" style="font-size:11px;margin-bottom:14px">📋 Copy Apps Script code</button>';
+  }
+
+  h += '<div class="mbtns"><button class="mbtn" data-act="closeBackupModal" type="button">Close</button></div>';
+
+  document.getElementById('backup-modal-content').innerHTML = h;
+}
+
+// The Apps Script source the user pastes into their project. We show it inside
+// the dashboard so they don't have to leave to set it up.
+var APPS_SCRIPT_CODE = [
+'// ============================================================',
+'// RCNK Wheel Shop — Backup & Restore Web App',
+'// Paste this into a new Apps Script project, then Deploy → Web app',
+'// (Execute as: Me · Who has access: Anyone). Copy the /exec URL into',
+'// the dashboard\'s Backup screen.',
+'// ============================================================',
+'',
+'var SHEET_NAME = "wheel_shop_backups";',
+'',
+'function _sheet_() {',
+'  var ss;',
+'  var props = PropertiesService.getScriptProperties();',
+'  var id = props.getProperty("SHEET_ID");',
+'  if (id) {',
+'    try { ss = SpreadsheetApp.openById(id); } catch(e) { ss = null; }',
+'  }',
+'  if (!ss) {',
+'    ss = SpreadsheetApp.create(SHEET_NAME);',
+'    props.setProperty("SHEET_ID", ss.getId());',
+'    var sh0 = ss.getSheets()[0];',
+'    sh0.setName("backups");',
+'    sh0.appendRow(["row","tsStr","label","device","wheelsets","archive","events","pool_ax","pool_wd","pool_bd","pool_ct","payload"]);',
+'  }',
+'  return ss.getSheetByName("backups");',
+'}',
+'',
+'function _json_(obj) {',
+'  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);',
+'}',
+'',
+'function doGet(e) {',
+'  try {',
+'    var sh = _sheet_();',
+'    var action = (e && e.parameter && e.parameter.action) || "list";',
+'    if (action === "list") {',
+'      var lastRow = sh.getLastRow();',
+'      if (lastRow < 2) return _json_({ok:true, backups:[]});',
+'      var values = sh.getRange(2,1,lastRow-1,11).getValues();',
+'      var rows = values.map(function(r){',
+'        return {row:r[0], tsStr:r[1], label:r[2], device:r[3],',
+'                counts:{wheelsets:r[4], archive:r[5], events:r[6],',
+'                        pool_ax:r[7], pool_wd:r[8], pool_bd:r[9], pool_ct:r[10]}};',
+'      });',
+'      rows.sort(function(a,b){ return (b.row||0) - (a.row||0); });',
+'      return _json_({ok:true, backups: rows.slice(0,100)});',
+'    }',
+'    if (action === "get") {',
+'      var row = parseInt(e.parameter.row || "0");',
+'      if (!row) return _json_({ok:false, error:"row required"});',
+'      var data = sh.getRange(row+1,12).getValue();',
+'      if (!data) return _json_({ok:false, error:"empty payload"});',
+'      var snap;',
+'      try { snap = JSON.parse(data); }',
+'      catch(e2){ return _json_({ok:false, error:"corrupt payload: "+e2.message}); }',
+'      return _json_({ok:true, snapshot: snap});',
+'    }',
+'    if (action === "ping") {',
+'      return _json_({ok:true, msg:"alive", sheetId: PropertiesService.getScriptProperties().getProperty("SHEET_ID")||""});',
+'    }',
+'    return _json_({ok:false, error:"unknown action"});',
+'  } catch(err) {',
+'    return _json_({ok:false, error: String(err)});',
+'  }',
+'}',
+'',
+'function doPost(e) {',
+'  try {',
+'    var sh = _sheet_();',
+'    var action = (e && e.parameter && e.parameter.action) || "";',
+'    if (action !== "backup") return _json_({ok:false, error:"unknown action"});',
+'    var raw = e.parameter.payload || "";',
+'    if (!raw) return _json_({ok:false, error:"empty payload"});',
+'    var snap;',
+'    try { snap = JSON.parse(raw); }',
+'    catch(e2){ return _json_({ok:false, error:"invalid JSON: "+e2.message}); }',
+'    var c = snap.counts || {};',
+'    var nextRow = sh.getLastRow() + 1;',
+'    var rowId = nextRow - 1; // sequential id (1-based for users)',
+'    sh.appendRow([rowId, snap.tsStr||"", snap.label||"", snap.device||"",',
+'                  c.wheelsets||0, c.archive||0, c.events||0,',
+'                  c.pool_ax||0, c.pool_wd||0, c.pool_bd||0, c.pool_ct||0,',
+'                  raw]);',
+'    return _json_({ok:true, row: rowId});',
+'  } catch(err) {',
+'    return _json_({ok:false, error: String(err)});',
+'  }',
+'}'
+].join('\n');
+
+// Auto-backup timer
+var _autoBackupTimer = null;
+function startAutoBackupTimer(){
+  if(_autoBackupTimer){ clearInterval(_autoBackupTimer); _autoBackupTimer = null; }
+  var mins = getAutoBackupMin();
+  if(mins <= 0) return;
+  if(!getBackupUrl()) return;
+  _autoBackupTimer = setInterval(function(){
+    // Skip if no data (avoid backing up empty seed)
+    if(Object.keys(WS||{}).length === 0 && Object.keys(ARCHIVE||{}).length === 0) return;
+    pushBackup('auto').then(function(){
+      var ps = document.getElementById('persist-status');
+      if(ps){ var t = ps.textContent; ps.textContent = '☁ Auto-backed up'; setTimeout(function(){ ps.textContent = t; }, 2000); }
+    }).catch(function(err){
+      console.error('Auto-backup failed:', err);
+    });
+  }, mins * 60 * 1000);
+}
+
+// Wire the header Backup button
+var backupBtn = document.getElementById('backup-btn');
+if(backupBtn) backupBtn.addEventListener('click', openBackupModal);
+
+// Wire backup actions into the global click delegation
+Actions.closeBackupModal = closeBackupModal;
+Actions.saveBackupUrl = function(){
+  var el = document.getElementById('bk-url');
+  if(!el) return;
+  var u = (el.value||'').trim();
+  setBackupUrl(u);
+  toast('Backup URL saved');
+  startAutoBackupTimer();
+  renderBackupModal();
+};
+Actions.testBackupUrl = function(){
+  var el = document.getElementById('bk-url');
+  if(el) setBackupUrl((el.value||'').trim());
+  if(!getBackupUrl()){ renderBackupModal({testResult:{ok:false, msg:'Please paste a URL first.'}}); return; }
+  fetch(getBackupUrl() + (getBackupUrl().indexOf('?')>=0?'&':'?') + 'action=ping', {method:'GET', redirect:'follow'})
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      if(j && j.ok) renderBackupModal({testResult:{ok:true, msg:'✓ Connected. Sheet ready.'}});
+      else renderBackupModal({testResult:{ok:false, msg:'✗ '+(j && j.error || 'No response')}});
+    })
+    .catch(function(err){ renderBackupModal({testResult:{ok:false, msg:'✗ '+err.message+' (check URL & deployment access)'}}); });
+};
+Actions.setBackupAuto = function(_, extra){
+  var v = parseInt((extra && extra.val) || '0');
+  setAutoBackupMin(v);
+  startAutoBackupTimer();
+  renderBackupModal();
+};
+Actions.doBackupNow = function(){
+  var lblEl = document.getElementById('bk-label');
+  var label = (lblEl && lblEl.value || '').trim() || 'manual';
+  if(!getBackupUrl()){ renderBackupModal({backupResult:{ok:false, msg:'Set the URL first.'}}); return; }
+  renderBackupModal({backupResult:{ok:true, msg:'Backing up…'}});
+  pushBackup(label).then(function(r){
+    renderBackupModal({backupResult:{ok:true, msg:'✓ Backup saved as row '+r.row+'.'}});
+  }).catch(function(err){
+    renderBackupModal({backupResult:{ok:false, msg:'✗ '+err.message}});
+  });
+};
+Actions.refreshBackupList = function(){
+  if(!getBackupUrl()){ renderBackupModal({listError:'Set the URL first.'}); return; }
+  renderBackupModal({list:[], listError:'Loading…'});
+  listBackups().then(function(arr){
+    renderBackupModal({list: arr});
+  }).catch(function(err){
+    renderBackupModal({list:[], listError:err.message});
+  });
+};
+Actions.doRestore = function(_, extra){
+  var row = (extra && extra.val) || '';
+  if(!row) return;
+  confirmAct({
+    title: 'Restore this backup?',
+    message: 'The current dashboard data will be replaced with the backup. A safety backup of the current state will be taken first.',
+    confirmLabel: 'Yes, restore',
+    danger: true
+  }, function(){
+    // Safety backup first
+    pushBackup('pre-restore safety').catch(function(){})
+      .finally ? pushBackup('pre-restore safety').finally(function(){ doActualRestore(); })
+      : (function(){ pushBackup('pre-restore safety').then(doActualRestore, doActualRestore); })();
+    function doActualRestore(){
+      restoreBackup(row).then(function(snap){
+        toast('Restored backup from '+(snap.tsStr||'')+' · '+(snap.counts&&snap.counts.wheelsets||0)+' wheelsets');
+        closeBackupModal();
+      }).catch(function(err){
+        renderBackupModal({backupResult:{ok:false, msg:'✗ Restore failed: '+err.message}});
+      });
+    }
+  });
+};
+Actions.showBackupSetup = function(){ renderBackupModal({showSetup:true}); };
+Actions.showBackupCode = function(){ renderBackupModal({showSetup:true, showCode:true}); };
+Actions.copyAppsScript = function(){
+  // Use a temporary textarea so this works without the Clipboard API permission
+  var ta = document.createElement('textarea');
+  ta.value = APPS_SCRIPT_CODE;
+  ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); toast('Apps Script code copied'); }
+  catch(e){ toast('Copy failed — please select and copy manually', 'err'); }
+  document.body.removeChild(ta);
+};
+
+// Start the auto-backup loop on load
+setTimeout(startAutoBackupTimer, 5000);
 
 // =========================================================================
 // EXPORT (v14) — produce a multi-sheet .xls file (Excel-compatible HTML format)
@@ -7821,8 +8823,6 @@ function applyCloudUpdate(docName, data, isFirst){
   if(typeof VTL_WIP === 'undefined' || VTL_WIP === null) VTL_WIP = [];
   if(docName === 'wheelsets'){
     // Protect wheelsets we registered in the very recent past (< 5 seconds ago).
-    // If a cloud snapshot arrives that's missing one of these, it's a stale echo
-    // from before our register write; preserve our local version.
     var nowTs = Date.now();
     var protectIds = {};
     Object.keys(WS).forEach(function(id){
@@ -7831,6 +8831,27 @@ function applyCloudUpdate(docName, data, isFirst){
         protectIds[id] = w;
       }
     });
+
+    // Safety guard: don't let an empty/much-smaller cloud snapshot wipe local data.
+    // If local has wheelsets and cloud has none, or cloud has dropped >50% of records
+    // and this is not the very first snapshot, refuse the overwrite and warn the user.
+    var localCount = Object.keys(WS).length;
+    var cloudCount = Object.keys(data || {}).length;
+    if(!isFirst && localCount > 0){
+      var lossPct = (localCount - cloudCount) / localCount;
+      if(cloudCount === 0 || lossPct > 0.5){
+        console.warn('[Cloud guard] Refused to overwrite '+localCount+' local wheelsets with '+cloudCount+' cloud — possible data-loss event.');
+        if(window.Cloud && window.Cloud._trace){
+          window.Cloud._trace('GUARD REJECT wheelsets local='+localCount+' cloud='+cloudCount);
+        }
+        // Show a persistent toast so the user knows
+        try { toast('⚠ Blocked a cloud update that would have removed '+(localCount-cloudCount)+' wheelsets. Please use Backup → restore if needed.', 'warn', 10000); } catch(e){}
+        // Re-push our local state to cloud to recover the canonical record
+        setTimeout(function(){ saveState(); }, 500);
+        return;
+      }
+    }
+
     var changed = [];
     Object.keys(data).forEach(function(id){
       if(JSON.stringify(WS[id]) !== JSON.stringify(data[id])) changed.push(id);
@@ -7840,8 +8861,38 @@ function applyCloudUpdate(docName, data, isFirst){
     // Re-insert recently-added local ones that the snapshot was missing
     Object.keys(protectIds).forEach(function(id){ WS[id] = protectIds[id]; });
     if(!isFirst && changed.length){ setTimeout(function(){ flashChangedCards(changed); }, 50); }
-  } else if(docName === 'pools'){ POOL = data; }
-  else if(docName === 'archive'){ ARCHIVE = data; }
+  } else if(docName === 'pools'){
+    // Same safety guard for pools
+    var lpCount = 0, cpCount = 0;
+    ['ax','wd','bd','ct'].forEach(function(k){
+      ['r','n','c','w'].forEach(function(b){
+        if(POOL[k] && POOL[k][b]) lpCount += POOL[k][b].length;
+        if(data && data[k] && data[k][b]) cpCount += data[k][b].length;
+      });
+    });
+    if(!isFirst && lpCount > 0 && (cpCount === 0 || (lpCount - cpCount)/lpCount > 0.5)){
+      console.warn('[Cloud guard] Refused to overwrite pools (local='+lpCount+' cloud='+cpCount+')');
+      try { toast('⚠ Blocked a cloud update that would have wiped the component pools.', 'warn', 10000); } catch(e){}
+      setTimeout(function(){ saveState(); }, 500);
+      return;
+    }
+    POOL = data;
+  }
+  else if(docName === 'archive'){
+    // Archive should only grow — never let cloud drop archive entries
+    var localArcCount = Object.keys(ARCHIVE).length;
+    var cloudArcCount = Object.keys(data || {}).length;
+    if(!isFirst && localArcCount > 0 && cloudArcCount < localArcCount){
+      console.warn('[Cloud guard] Cloud archive has fewer entries than local; merging to keep local rows.');
+      // Merge: keep all local entries, overlay any cloud-only or updated entries
+      var merged = JSON.parse(JSON.stringify(ARCHIVE));
+      Object.keys(data || {}).forEach(function(id){ merged[id] = data[id]; });
+      ARCHIVE = merged;
+      setTimeout(function(){ saveState(); }, 500);
+    } else {
+      ARCHIVE = data;
+    }
+  }
   else if(docName === 'global_log'){ if(Array.isArray(data)) GLOBAL_LOG = data; }
   else if(docName === 'component_log'){
     if(data && typeof data === 'object'){
