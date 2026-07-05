@@ -9304,50 +9304,11 @@ function showPinGate(){
 
 // Migration banner — first device to connect with empty cloud uploads its local data
 function showMigrationBannerIfNeeded(){
-  if(!window.Cloud || !window.Cloud.ready) return;
-  var localBackup = localStorage.getItem('wst6_ws');
-  var localWS = localBackup ? JSON.parse(localBackup) : {};
-  var localPool = JSON.parse(localStorage.getItem('wst6_pool')||'null');
-  var hasLocalData = Object.keys(localWS).length > 0 || (localPool && localPool.ax && (localPool.ax.r||[]).length > 0);
-  var cloudIsEmpty = Object.keys(WS).length === 0 && (!POOL.ax || (POOL.ax.r||[]).length === 0);
-  if(!hasLocalData || !cloudIsEmpty) return;
-  var banner = document.createElement('div');
-  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#fef3c7;border-bottom:2px solid #f59e0b;padding:12px 16px;z-index:9000;font-size:13px;display:flex;align-items:center;gap:14px;justify-content:center';
-  banner.innerHTML =
-    '<span><b>Cloud is empty.</b> Upload your local data to seed the shared shop database?</span>' +
-    '<button id="mig-go" style="background:#2563eb;color:white;border:0;padding:6px 14px;border-radius:4px;font-weight:600;cursor:pointer">Upload local → cloud</button>' +
-    '<button id="mig-skip" style="background:transparent;color:#92400e;border:1px solid #92400e;padding:6px 14px;border-radius:4px;font-weight:600;cursor:pointer">Skip — start fresh</button>';
-  document.body.appendChild(banner);
-  document.getElementById('mig-go').addEventListener('click', async function(){
-    document.getElementById('mig-go').disabled = true;
-    document.getElementById('mig-go').textContent = 'Uploading…';
-    try {
-      var localState = {
-        wheelsets: JSON.parse(localStorage.getItem('wst6_ws')||'{}'),
-        pools: JSON.parse(localStorage.getItem('wst6_pool')||'{}'),
-        archive: JSON.parse(localStorage.getItem('wst6_archive')||'{}'),
-        global_log: JSON.parse(localStorage.getItem('wst6_globallog')||'[]').slice(0, 500),
-        component_log: JSON.parse(localStorage.getItem('wst6_complog')||'{}'),
-        operators: JSON.parse(localStorage.getItem('wst6_operators')||'{}'),
-        lathes: {
-          atl: JSON.parse(localStorage.getItem('wst6_atl_wip')||'[]'),
-          vtl: JSON.parse(localStorage.getItem('wst6_vtl_wip')||'[]'),
-          shift: localStorage.getItem('wst6_shift') || 'B'
-        }
-      };
-      await window.Cloud.migrateLocalToCloud(localState);
-      banner.remove();
-      toast('Local data uploaded to cloud', 'ok');
-    } catch(e){
-      toast('Migration failed: ' + e.message, 'err');
-      document.getElementById('mig-go').disabled = false;
-      document.getElementById('mig-go').textContent = 'Upload local → cloud';
-    }
-  });
-  document.getElementById('mig-skip').addEventListener('click', function(){
-    banner.remove();
-    localStorage.setItem('wst6_skip_migrate', '1');
-  });
+  // Disabled in Sheets-only mode. The Firebase-era "seed the cloud from local"
+  // flow doesn't apply here — the Sheets state tab either has data or it doesn't,
+  // and either way local data is preserved. If the user wants their local data
+  // pushed to the sheet, they can register/edit normally and it flushes automatically.
+  return;
 }
 
 // Switch the active role IN-PLACE without a full page reload.
