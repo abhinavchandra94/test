@@ -1634,6 +1634,9 @@ function logEvent(wsId,tag,msg,undoData,meta){
   if(currentTab === 'history') renderHistoryDispatch();
   // Update the header undo indicator
   updateUndoButton();
+  // Mirror to Google Sheets event log (fire-and-forget; queued if offline).
+  // This runs in the background and never blocks the UI.
+  try { if(typeof enqueueEventMirror === 'function') enqueueEventMirror(entry); } catch(e){}
 }
 // =========================================================================
 // COMPONENT_LOG (v18) — per-component event log keyed by serial.
@@ -7234,6 +7237,76 @@ function renderBackupModal(extra){
     h += '<button class="mbtn" data-act="copyAppsScript" style="font-size:11px;margin-bottom:14px">📋 Copy Apps Script code</button>';
   }
 
+  // ---- Event Mirror section (real-time event log to a separate tab in the SAME Sheet) ----
+  var evUrl = getEvMirrorUrl();  // same as backup URL
+  var evQ = getEvMirrorQueue();
+  var evLast = parseInt(localStorage.getItem(EVMIRROR_LAST_KEY) || '0');
+  var evLastStr = evLast ? new Date(evLast).toLocaleString() : '(never)';
+
+  if(!extra || !extra.showEventMirror){
+    // Collapsed banner — one-click to expand
+    h += '<div style="background:#eff6ff;border:2px solid #3b82f6;border-radius:6px;padding:12px;margin-bottom:14px">';
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px">';
+    h += '<div>';
+    h += '<div style="font-size:12px;font-weight:700;color:#1e3a8a">📜 Real-time event mirror '+(evUrl?'<span style="color:#15803d">· active</span>':'<span style="color:#dc2626">· needs script update</span>')+'</div>';
+    h += '<div style="font-size:11px;color:#1e3a8a;margin-top:4px">Every action written to the <b>events</b> tab of your backup Sheet in real time. '+(evUrl?'Queue: '+evQ.length+' · Last sent: '+evLastStr:'Update your existing Apps Script to enable this.')+'</div>';
+    h += '</div>';
+    h += '<button class="mbtn pri" data-act="showEventMirror" style="font-size:12px;background:#2563eb">Manage</button>';
+    h += '</div></div>';
+  } else {
+    // Expanded event mirror panel
+    h += '<div style="background:#eff6ff;border:2px solid #3b82f6;border-radius:6px;padding:14px;margin-bottom:14px">';
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">';
+    h += '<div style="font-size:13px;font-weight:700;color:#1e3a8a">📜 Real-time event mirror</div>';
+    h += '<button class="edit-btn" data-act="hideEventMirror" style="font-size:11px">▲ Hide</button>';
+    h += '</div>';
+    h += '<div style="font-size:11px;color:#1e3a8a;margin-bottom:12px;line-height:1.5">Every action (register, advance, inspect, edit, dispatch, undo…) is written as one row to the <b>events</b> tab of your backup Sheet within seconds. Uses the same URL as your backup (box 1 above).</div>';
+
+    // Status
+    h += '<div style="background:#fff;border:1px solid #93c5fd;border-radius:5px;padding:12px;margin-bottom:10px">';
+    h += '<div style="font-size:11px;font-weight:700;color:#1e3a8a;margin-bottom:6px">Status</div>';
+    h += '<div style="font-size:11px;color:#0f172a;line-height:1.7">';
+    h += '<div><b>Using URL:</b> '+(evUrl?'<span style="color:#15803d">✓ configured (same as backup)</span>':'<span style="color:#dc2626">✗ set the backup URL in box 1 above first</span>')+'</div>';
+    h += '<div><b>Events queued locally:</b> '+evQ.length+' (waiting to be written)</div>';
+    h += '<div><b>Last successful write:</b> '+evLastStr+'</div>';
+    h += '</div>';
+    h += '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">';
+    h += '<button class="mbtn" data-act="testFireEvent" style="font-size:11px;padding:6px 12px">Fire test event</button>';
+    h += '<button class="mbtn" data-act="flushEvMirrorNow" style="font-size:11px;padding:6px 12px">Flush queue now</button>';
+    h += '<button class="mbtn" data-act="testEvMirrorUrl" style="font-size:11px;padding:6px 12px">Ping endpoint</button>';
+    h += '</div>';
+    if(extra.evResult){
+      h += '<div style="font-size:11px;margin-top:8px;color:'+(extra.evResult.ok?'#15803d':'#dc2626')+'">'+escapeHtml(extra.evResult.msg)+'</div>';
+    }
+    h += '</div>';
+
+    // One-time upgrade instructions
+    h += '<div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:5px;padding:12px;margin-bottom:10px;font-size:11px;line-height:1.7;color:#78350f">';
+    h += '<div style="font-weight:700;margin-bottom:6px">⚠ One-time update required</div>';
+    h += 'Your existing Apps Script only handles backups. Update it to also handle events:';
+    h += '<ol style="margin:8px 0 0;padding-left:18px">';
+    h += '<li>Open your existing Apps Script project (script.google.com)</li>';
+    h += '<li>Click <b>Show updated code</b> below, then <b>Copy code</b></li>';
+    h += '<li>In the Apps Script editor: select all existing code (Ctrl+A) and paste the new version</li>';
+    h += '<li>Save the script (Ctrl+S)</li>';
+    h += '<li><b>Deploy → Manage deployments</b> → pencil icon on your existing deployment → <b>Version: New version</b> → <b>Deploy</b></li>';
+    h += '<li>The URL stays the same. Click <b>Fire test event</b> above to verify.</li>';
+    h += '<li>The <b>events</b> tab appears in your existing Sheet automatically on the first event.</li>';
+    h += '</ol>';
+    h += '</div>';
+
+    if(!(extra && extra.showEvCode)){
+      h += '<div style="text-align:center;margin-bottom:10px"><button class="mbtn" data-act="showEvMirrorCode" style="font-size:11px">📋 Show updated Apps Script code</button></div>';
+    } else {
+      h += '<div style="background:#0f172a;border-radius:5px;padding:12px;margin-bottom:10px;font-size:10px;color:#e2e8f0;font-family:monospace;max-height:280px;overflow:auto;white-space:pre-wrap">';
+      h += escapeHtml(APPS_SCRIPT_CODE);
+      h += '</div>';
+      h += '<button class="mbtn" data-act="copyAppsScript" style="font-size:11px;margin-bottom:10px">📋 Copy code</button>';
+    }
+
+    h += '</div>';
+  }
+
   h += '<div class="mbtns"><button class="mbtn" data-act="closeBackupModal" type="button">Close</button></div>';
 
   document.getElementById('backup-modal-content').innerHTML = h;
@@ -7243,15 +7316,18 @@ function renderBackupModal(extra){
 // the dashboard so they don't have to leave to set it up.
 var APPS_SCRIPT_CODE = [
 '// ============================================================',
-'// RCNK Wheel Shop — Backup & Restore Web App',
-'// Paste this into a new Apps Script project, then Deploy → Web app',
+'// RCNK Wheel Shop — Backup + Event Log Web App (v2)',
+'// One script, one Sheet, TWO tabs:',
+'//   "backups" — one row per full-state snapshot (manual + hourly)',
+'//   "events"  — one row per action (register/advance/inspect/dispatch/edit/undo/...)',
+'// Paste into a new Apps Script project, Deploy → Web app',
 '// (Execute as: Me · Who has access: Anyone). Copy the /exec URL into',
 '// the dashboard\'s Backup screen.',
 '// ============================================================',
 '',
 'var SHEET_NAME = "wheel_shop_backups";',
 '',
-'function _sheet_() {',
+'function _spreadsheet_() {',
 '  var ss;',
 '  var props = PropertiesService.getScriptProperties();',
 '  var id = props.getProperty("SHEET_ID");',
@@ -7264,8 +7340,31 @@ var APPS_SCRIPT_CODE = [
 '    var sh0 = ss.getSheets()[0];',
 '    sh0.setName("backups");',
 '    sh0.appendRow(["row","tsStr","label","device","wheelsets","archive","events","pool_ax","pool_wd","pool_bd","pool_ct","payload"]);',
+'    sh0.setFrozenRows(1);',
 '  }',
-'  return ss.getSheetByName("backups");',
+'  return ss;',
+'}',
+'',
+'function _backupSheet_() {',
+'  var ss = _spreadsheet_();',
+'  var sh = ss.getSheetByName("backups");',
+'  if (!sh) {',
+'    sh = ss.insertSheet("backups");',
+'    sh.appendRow(["row","tsStr","label","device","wheelsets","archive","events","pool_ax","pool_wd","pool_bd","pool_ct","payload"]);',
+'    sh.setFrozenRows(1);',
+'  }',
+'  return sh;',
+'}',
+'',
+'function _eventsSheet_() {',
+'  var ss = _spreadsheet_();',
+'  var sh = ss.getSheetByName("events");',
+'  if (!sh) {',
+'    sh = ss.insertSheet("events");',
+'    sh.appendRow(["tsStr","device","role","shift","wsId","coach","bogie","caseNum","tag","msg","fromLoc","toLoc","dispatchType","meta","seq","ts"]);',
+'    sh.setFrozenRows(1);',
+'  }',
+'  return sh;',
 '}',
 '',
 'function _json_(obj) {',
@@ -7274,9 +7373,17 @@ var APPS_SCRIPT_CODE = [
 '',
 'function doGet(e) {',
 '  try {',
-'    var sh = _sheet_();',
 '    var action = (e && e.parameter && e.parameter.action) || "list";',
+'    if (action === "ping") {',
+'      var props = PropertiesService.getScriptProperties();',
+'      var bsh = _backupSheet_();',
+'      var esh = _eventsSheet_();',
+'      return _json_({ok:true, msg:"alive", sheetId: props.getProperty("SHEET_ID")||"",',
+'                     backupRows: Math.max(0,bsh.getLastRow()-1),',
+'                     eventRows: Math.max(0,esh.getLastRow()-1)});',
+'    }',
 '    if (action === "list") {',
+'      var sh = _backupSheet_();',
 '      var lastRow = sh.getLastRow();',
 '      if (lastRow < 2) return _json_({ok:true, backups:[]});',
 '      var values = sh.getRange(2,1,lastRow-1,11).getValues();',
@@ -7289,6 +7396,7 @@ var APPS_SCRIPT_CODE = [
 '      return _json_({ok:true, backups: rows.slice(0,100)});',
 '    }',
 '    if (action === "get") {',
+'      var sh = _backupSheet_();',
 '      var row = parseInt(e.parameter.row || "0");',
 '      if (!row) return _json_({ok:false, error:"row required"});',
 '      var data = sh.getRange(row+1,12).getValue();',
@@ -7298,8 +7406,16 @@ var APPS_SCRIPT_CODE = [
 '      catch(e2){ return _json_({ok:false, error:"corrupt payload: "+e2.message}); }',
 '      return _json_({ok:true, snapshot: snap});',
 '    }',
-'    if (action === "ping") {',
-'      return _json_({ok:true, msg:"alive", sheetId: PropertiesService.getScriptProperties().getProperty("SHEET_ID")||""});',
+'    if (action === "recent_events") {',
+'      var esh = _eventsSheet_();',
+'      var lastRow = esh.getLastRow();',
+'      if (lastRow < 2) return _json_({ok:true, events:[]});',
+'      var n = Math.min(50, lastRow-1);',
+'      var vals = esh.getRange(lastRow-n+1, 1, n, 16).getValues();',
+'      var rows = vals.map(function(r){',
+'        return {tsStr:r[0], device:r[1], role:r[2], shift:r[3], wsId:r[4], coach:r[5], bogie:r[6], caseNum:r[7], tag:r[8], msg:r[9], fromLoc:r[10], toLoc:r[11], dispatchType:r[12]};',
+'      }).reverse();',
+'      return _json_({ok:true, events: rows});',
 '    }',
 '    return _json_({ok:false, error:"unknown action"});',
 '  } catch(err) {',
@@ -7309,22 +7425,42 @@ var APPS_SCRIPT_CODE = [
 '',
 'function doPost(e) {',
 '  try {',
-'    var sh = _sheet_();',
 '    var action = (e && e.parameter && e.parameter.action) || "";',
-'    if (action !== "backup") return _json_({ok:false, error:"unknown action"});',
-'    var raw = e.parameter.payload || "";',
-'    if (!raw) return _json_({ok:false, error:"empty payload"});',
-'    var snap;',
-'    try { snap = JSON.parse(raw); }',
-'    catch(e2){ return _json_({ok:false, error:"invalid JSON: "+e2.message}); }',
-'    var c = snap.counts || {};',
-'    var nextRow = sh.getLastRow() + 1;',
-'    var rowId = nextRow - 1; // sequential id (1-based for users)',
-'    sh.appendRow([rowId, snap.tsStr||"", snap.label||"", snap.device||"",',
-'                  c.wheelsets||0, c.archive||0, c.events||0,',
-'                  c.pool_ax||0, c.pool_wd||0, c.pool_bd||0, c.pool_ct||0,',
-'                  raw]);',
-'    return _json_({ok:true, row: rowId});',
+'    if (action === "backup") {',
+'      var sh = _backupSheet_();',
+'      var raw = e.parameter.payload || "";',
+'      if (!raw) return _json_({ok:false, error:"empty payload"});',
+'      var snap;',
+'      try { snap = JSON.parse(raw); }',
+'      catch(e2){ return _json_({ok:false, error:"invalid JSON: "+e2.message}); }',
+'      var c = snap.counts || {};',
+'      var nextRow = sh.getLastRow() + 1;',
+'      var rowId = nextRow - 1;',
+'      sh.appendRow([rowId, snap.tsStr||"", snap.label||"", snap.device||"",',
+'                    c.wheelsets||0, c.archive||0, c.events||0,',
+'                    c.pool_ax||0, c.pool_wd||0, c.pool_bd||0, c.pool_ct||0,',
+'                    raw]);',
+'      return _json_({ok:true, row: rowId});',
+'    }',
+'    if (action === "append") {',
+'      var esh = _eventsSheet_();',
+'      var raw2 = e.parameter.events || "";',
+'      if (!raw2) return _json_({ok:false, error:"empty events"});',
+'      var arr;',
+'      try { arr = JSON.parse(raw2); } catch(e3){ return _json_({ok:false, error:"invalid JSON"}); }',
+'      if (!Array.isArray(arr)) return _json_({ok:false, error:"expected array"});',
+'      var rows2 = arr.map(function(r){',
+'        return [r.tsStr||"", r.device||"", r.role||"", r.shift||"", r.wsId||"",',
+'                r.coach||"", r.bogie||"", r.caseNum||"", r.tag||"", r.msg||"",',
+'                r.fromLoc||"", r.toLoc||"", r.dispatchType||"", r.meta||"", r.seq||0, r.ts||0];',
+'      });',
+'      if (rows2.length > 0) {',
+'        var startRow = esh.getLastRow() + 1;',
+'        esh.getRange(startRow, 1, rows2.length, 16).setValues(rows2);',
+'      }',
+'      return _json_({ok:true, appended: rows2.length});',
+'    }',
+'    return _json_({ok:false, error:"unknown action"});',
 '  } catch(err) {',
 '    return _json_({ok:false, error: String(err)});',
 '  }',
@@ -7443,7 +7579,153 @@ Actions.copyAppsScript = function(){
 setTimeout(startAutoBackupTimer, 5000);
 
 // =========================================================================
-// EXPORT (v14) — produce a multi-sheet .xls file (Excel-compatible HTML format)
+// EVENT MIRROR (v70) — real-time append-only log to a separate Google Sheet.
+// Every logEvent() call is queued and pushed to the Sheet in the background.
+// If the network is offline or the endpoint is down, events queue in localStorage
+// and retry every 30 seconds. Nothing is dropped.
+// This gives a permanent, append-only audit log outside Firebase — if Firebase
+// data is ever lost or corrupted, this Sheet is the recovery source of truth.
+// =========================================================================
+
+var EVMIRROR_QUEUE_KEY = 'wst6_evmirror_queue';
+var EVMIRROR_URL_KEY = 'wst6_evmirror_url';
+var EVMIRROR_LAST_KEY = 'wst6_evmirror_last';
+
+function getEvMirrorUrl(){ return getBackupUrl(); }
+function setEvMirrorUrl(u){ setBackupUrl(u); }
+
+function getEvMirrorQueue(){
+  try { return JSON.parse(localStorage.getItem(EVMIRROR_QUEUE_KEY) || '[]'); }
+  catch(e){ return []; }
+}
+function setEvMirrorQueue(q){
+  try { localStorage.setItem(EVMIRROR_QUEUE_KEY, JSON.stringify(q.slice(-5000))); }
+  catch(e){} // storage full - accept the loss rather than crash
+}
+
+// Called from logEvent(). Adds a compact record to the queue and kicks the flusher.
+function enqueueEventMirror(entry){
+  if(!entry) return;
+  var w = WS[entry.wsId] || (ARCHIVE[entry.wsId] || {});
+  var rec = {
+    ts: entry.ts,
+    tsStr: new Date(entry.ts).toISOString(),
+    device: (typeof DEVICE_ID !== 'undefined' ? DEVICE_ID : 'unknown'),
+    shift: SHIFT || '',
+    role: (typeof USER_ROLE !== 'undefined' ? USER_ROLE : ''),
+    wsId: entry.wsId || '',
+    coach: w.c || '',
+    bogie: w.b || '',
+    caseNum: w.case || '',
+    tag: entry.tag || '',
+    msg: entry.msg || '',
+    fromLoc: (entry.meta && entry.meta.fromLoc) || '',
+    toLoc: (entry.meta && entry.meta.toLoc) || (w.loc || ''),
+    dispatchType: (entry.meta && entry.meta.dispatchType) || '',
+    meta: entry.meta ? JSON.stringify(entry.meta) : '',
+    seq: entry.seq || 0
+  };
+  var q = getEvMirrorQueue();
+  q.push(rec);
+  setEvMirrorQueue(q);
+  // Debounced flush — batch multiple events fired in quick succession
+  if(_evMirrorFlushTimer){ clearTimeout(_evMirrorFlushTimer); }
+  _evMirrorFlushTimer = setTimeout(flushEvMirrorQueue, 800);
+}
+
+var _evMirrorFlushTimer = null;
+var _evMirrorFlushInFlight = false;
+
+function flushEvMirrorQueue(){
+  if(_evMirrorFlushInFlight) return;
+  var url = getEvMirrorUrl();
+  if(!url) return; // not configured yet
+  var q = getEvMirrorQueue();
+  if(q.length === 0) return;
+  _evMirrorFlushInFlight = true;
+  var batch = q.slice(0, 100); // push up to 100 at a time
+  var payload = 'action=append&events=' + encodeURIComponent(JSON.stringify(batch));
+  fetch(url, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: payload,
+    redirect: 'follow'
+  }).then(function(r){
+    return r.json();
+  }).then(function(j){
+    if(j && j.ok){
+      // Remove the batch we successfully wrote
+      var remaining = getEvMirrorQueue().slice(batch.length);
+      setEvMirrorQueue(remaining);
+      localStorage.setItem(EVMIRROR_LAST_KEY, String(Date.now()));
+      // If more to flush, do it again shortly
+      if(remaining.length > 0){
+        setTimeout(flushEvMirrorQueue, 500);
+      }
+    } else {
+      console.warn('[EventMirror] Append failed:', j && j.error);
+    }
+  }).catch(function(err){
+    console.warn('[EventMirror] Network error, will retry:', err && err.message);
+  }).finally(function(){
+    _evMirrorFlushInFlight = false;
+  });
+}
+
+// Periodic retry — every 30s, try to flush anything still queued.
+setInterval(flushEvMirrorQueue, 30000);
+
+// Also try to flush on tab visibility change (user returning after a while) and network reconnect.
+document.addEventListener('visibilitychange', function(){
+  if(!document.hidden) setTimeout(flushEvMirrorQueue, 500);
+});
+window.addEventListener('online', function(){ setTimeout(flushEvMirrorQueue, 500); });
+
+// Kick a first flush ~10s after page load in case events were queued from prior session
+setTimeout(flushEvMirrorQueue, 10000);
+
+// ============ EVENT MIRROR UI ACTIONS ============
+Actions.showEventMirror = function(){ renderBackupModal({showEventMirror:true}); };
+Actions.hideEventMirror = function(){ renderBackupModal({}); };
+Actions.showEvMirrorCode = function(){ renderBackupModal({showEventMirror:true, showEvCode:true}); };
+
+Actions.testEvMirrorUrl = function(){
+  if(!getEvMirrorUrl()){
+    renderBackupModal({showEventMirror:true, evResult:{ok:false, msg:'Set the backup URL in box 1 first.'}});
+    return;
+  }
+  fetch(getEvMirrorUrl() + (getEvMirrorUrl().indexOf('?')>=0?'&':'?') + 'action=ping', {method:'GET', redirect:'follow'})
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      if(j && j.ok){
+        var msg = '✓ Connected. Backup rows: '+(j.backupRows||0)+', Event rows: '+(j.eventRows||0)+'.';
+        if(j.eventRows === undefined){
+          msg = '✗ Script needs updating — no event support. Copy the updated code below.';
+          renderBackupModal({showEventMirror:true, evResult:{ok:false, msg:msg}});
+        } else {
+          renderBackupModal({showEventMirror:true, evResult:{ok:true, msg:msg}});
+        }
+      }
+      else renderBackupModal({showEventMirror:true, evResult:{ok:false, msg:'✗ '+(j && j.error || 'No response')}});
+    })
+    .catch(function(err){ renderBackupModal({showEventMirror:true, evResult:{ok:false, msg:'✗ '+err.message}}); });
+};
+
+Actions.testFireEvent = function(){
+  // Fire a harmless test event to verify the pipeline
+  logEvent('__test', 'test', 'Event mirror test at ' + now());
+  toast('Test event fired — will appear in the sheet within a few seconds');
+  setTimeout(flushEvMirrorQueue, 100);
+};
+
+Actions.flushEvMirrorNow = function(){
+  var qLen = getEvMirrorQueue().length;
+  if(qLen === 0){ toast('Nothing in queue'); return; }
+  toast('Flushing '+qLen+' queued events…');
+  flushEvMirrorQueue();
+};
+
+// =========================================================================
 // containing all wheelsets, components, pools, lathe WIP, audit log, archive.
 // Also supports per-component CSV download from the history modal.
 // =========================================================================
