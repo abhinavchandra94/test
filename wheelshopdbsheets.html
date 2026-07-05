@@ -6923,6 +6923,55 @@ if(exportBtn) exportBtn.addEventListener('click', function(){
 // User configures the Apps Script Web App URL once; saved in localStorage so
 // every device on the same browser remembers it.
 function getBackupUrl(){ return localStorage.getItem('wst6_backup_url') || ''; }
+
+// Format an ISO timestamp string (or millisecond number) as local device time.
+// Used everywhere in the backup UI so times match the wall clock the user sees.
+// Handles: ISO strings from the sheet ("2026-07-05T14:30:00.000Z"), millisecond
+// numbers, and Date objects. Returns "-" for anything unparseable.
+function formatLocalTime(v){
+  if(v == null || v === '') return '-';
+  var d;
+  if(typeof v === 'number') d = new Date(v);
+  else if(v instanceof Date) d = v;
+  else {
+    // Try to parse as ISO or common date formats
+    d = new Date(v);
+    if(isNaN(d.getTime())){
+      // Try parsing our own "YYYY-MM-DD HH:MM:SS" format as local time
+      var m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):?(\d{2})?/);
+      if(m){
+        d = new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5], +(m[6]||0));
+      } else {
+        return String(v);
+      }
+    }
+  }
+  if(isNaN(d.getTime())) return String(v);
+  // Local time in a compact readable format: "5 Jul 2026, 8:30 PM"
+  try {
+    return d.toLocaleString(undefined, {
+      day:'numeric', month:'short', year:'numeric',
+      hour:'numeric', minute:'2-digit'
+    });
+  } catch(e){
+    return d.toLocaleString();
+  }
+}
+
+// Format for writing to the Google Sheet — YYYY-MM-DD HH:MM:SS in DEVICE local time.
+// Sortable, unambiguous, and matches what the user sees on their wall clock.
+// (Alternative — ISO UTC — reads as "5.5 hours in the past" in India, causing confusion.)
+function formatSheetTime(v){
+  var d;
+  if(v == null) d = new Date();
+  else if(typeof v === 'number') d = new Date(v);
+  else if(v instanceof Date) d = v;
+  else d = new Date(v);
+  if(isNaN(d.getTime())) d = new Date();
+  var p = function(n){ return (n<10?'0':'')+n; };
+  return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()) + ' ' +
+         p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+}
 function setBackupUrl(u){ if(u) localStorage.setItem('wst6_backup_url', u); else localStorage.removeItem('wst6_backup_url'); }
 
 // Auto-backup interval (minutes). 0 = off.
@@ -6935,7 +6984,7 @@ function buildBackupSnapshot(label){
     schema: 'wheelshop-v1',
     label: label || ('manual ' + now()),
     ts: Date.now(),
-    tsStr: new Date().toISOString(),
+    tsStr: formatSheetTime(),  // device-local time (YYYY-MM-DD HH:MM:SS), sortable
     device: (typeof DEVICE_ID !== 'undefined' ? DEVICE_ID : 'unknown'),
     counts: {
       wheelsets: Object.keys(WS||{}).length,
@@ -7054,7 +7103,7 @@ function renderBackupModal(extra){
   var url = getBackupUrl();
   var autoMin = getAutoBackupMin();
   var lastTs = parseInt(localStorage.getItem('wst6_backup_last') || '0');
-  var lastStr = lastTs ? new Date(lastTs).toLocaleString() : '(never)';
+  var lastStr = lastTs ? formatLocalTime(lastTs) : '(never)';
   var h = '';
   h += '<div class="modal-ttl">🛡 Backup &amp; Restore</div>';
   h += '<div class="modal-sub">Periodic full-state snapshots to Google Sheets, so data can be restored after any loss.</div>';
@@ -7118,7 +7167,7 @@ function renderBackupModal(extra){
     h += '<thead><tr style="background:#fff7ed;position:sticky;top:0"><th style="text-align:left;padding:6px 10px;font-size:10px;text-transform:uppercase;color:#9a3412">When</th><th style="text-align:left;padding:6px 10px;font-size:10px;text-transform:uppercase;color:#9a3412">Label</th><th style="text-align:right;padding:6px 10px;font-size:10px;text-transform:uppercase;color:#9a3412">WS</th><th style="text-align:right;padding:6px 10px;font-size:10px;text-transform:uppercase;color:#9a3412">Archive</th><th style="text-align:right;padding:6px 10px;font-size:10px;text-transform:uppercase;color:#9a3412">Events</th><th style="padding:6px 10px"></th></tr></thead><tbody>';
     extra.list.forEach(function(b){
       h += '<tr style="border-top:1px solid #fed7aa">';
-      h += '<td style="padding:6px 10px;color:#0f172a">'+escapeHtml(b.tsStr||'')+'</td>';
+      h += '<td style="padding:6px 10px;color:#0f172a" title="'+escapeHtml(b.tsStr||'')+'">'+escapeHtml(formatLocalTime(b.tsStr))+'</td>';
       h += '<td style="padding:6px 10px;color:#475569">'+escapeHtml(b.label||'')+'</td>';
       h += '<td style="padding:6px 10px;text-align:right;font-variant-numeric:tabular-nums">'+(b.counts&&b.counts.wheelsets!=null?b.counts.wheelsets:'?')+'</td>';
       h += '<td style="padding:6px 10px;text-align:right;font-variant-numeric:tabular-nums">'+(b.counts&&b.counts.archive!=null?b.counts.archive:'?')+'</td>';
@@ -7155,7 +7204,7 @@ function renderBackupModal(extra){
   var evUrl = getEvMirrorUrl();  // same as backup URL
   var evQ = getEvMirrorQueue();
   var evLast = parseInt(localStorage.getItem(EVMIRROR_LAST_KEY) || '0');
-  var evLastStr = evLast ? new Date(evLast).toLocaleString() : '(never)';
+  var evLastStr = evLast ? formatLocalTime(evLast) : '(never)';
 
   if(!extra || !extra.showEventMirror){
     // Collapsed banner — one-click to expand
@@ -7432,7 +7481,8 @@ var APPS_SCRIPT_CODE = [
 '      for (var i=0;i<docs.length;i++){ if (partial[docs[i]] !== undefined) current[docs[i]] = partial[docs[i]]; }',
 '      var version = _nextVersion_();',
 '      var device = e.parameter.device || "";',
-'      var tsStr = new Date().toISOString();',
+'      // Local time in the script\\\'s timezone (matches sheet owner\\\'s clock)',
+'      var tsStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");',
 '      ssh3.appendRow([tsStr, device, version,',
 '        JSON.stringify(current.wheelsets),',
 '        JSON.stringify(current.pools),',
@@ -7595,7 +7645,7 @@ function enqueueEventMirror(entry){
   var w = WS[entry.wsId] || (ARCHIVE[entry.wsId] || {});
   var rec = {
     ts: entry.ts,
-    tsStr: new Date(entry.ts).toISOString(),
+    tsStr: formatSheetTime(entry.ts),
     device: (typeof DEVICE_ID !== 'undefined' ? DEVICE_ID : 'unknown'),
     shift: SHIFT || '',
     role: (typeof USER_ROLE !== 'undefined' ? USER_ROLE : ''),
