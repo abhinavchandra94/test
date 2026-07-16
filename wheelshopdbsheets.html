@@ -454,6 +454,57 @@ body.viewer-mode .machine-card[onclick],
 body.viewer-mode .pool-card[onclick] { pointer-events: none; }
 body.viewer-mode #export-btn { display: inline-block; }  /* viewers may still export */
 .viewer-banner{position:sticky;top:0;left:0;right:0;background:#dbeafe;border-bottom:2px solid #2563eb;padding:6px 16px;z-index:8000;font-size:12px;text-align:center;color:#1e3a8a;font-weight:600}
+
+/* ===== Wheelset / Component history report styles ===== */
+.wh-report{font-family:Georgia,'Times New Roman',serif;color:#0f172a;font-size:12px;line-height:1.5}
+.wh-report h1{font-size:22px;margin:0 0 4px;font-weight:700;font-family:Georgia,serif;letter-spacing:.02em}
+.wh-report h2{font-size:13px;margin:20px 0 8px;padding:6px 10px;background:#0f172a;color:#fff;font-weight:600;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:.06em;border-radius:3px}
+.wh-report .wh-sub{color:#64748b;font-size:11px;margin-bottom:14px;font-style:italic}
+.wh-report .wh-meta{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:4px 14px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:4px;padding:12px 14px;font-family:Arial,sans-serif;font-size:12px}
+.wh-report .wh-meta b{color:#64748b;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.04em}
+.wh-report .wh-meta span{color:#0f172a;font-weight:500}
+.wh-report table.wh-tbl{width:100%;border-collapse:collapse;font-size:11px;font-family:Arial,sans-serif;border:1px solid #cbd5e1}
+.wh-report table.wh-tbl th{background:#f1f5f9;color:#334155;text-align:left;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;font-weight:700;border-bottom:2px solid #cbd5e1}
+.wh-report table.wh-tbl td{padding:6px 10px;border-top:1px solid #e2e8f0;vertical-align:top}
+.wh-report table.wh-tbl tr:nth-child(even) td{background:#fafbfc}
+.wh-report .wh-stage{border:1px solid #cbd5e1;border-radius:4px;padding:10px 14px;margin-bottom:10px;background:#fff;font-family:Arial,sans-serif}
+.wh-report .wh-stage.current{background:#fef9c3;border-color:#eab308;border-left:4px solid #eab308}
+.wh-report .wh-stage-hd{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+.wh-report .wh-stage-name{font-size:13px;font-weight:700;color:#0f172a}
+.wh-report .wh-stage-time{font-size:10px;color:#64748b;font-family:Arial,sans-serif}
+.wh-report .wh-stage-body{font-size:11px;color:#334155;padding:6px 0 0;border-top:1px dashed #e2e8f0;margin-top:4px}
+.wh-report .wh-stage-body .wh-ev{display:flex;gap:8px;padding:3px 0}
+.wh-report .wh-stage-body .wh-ev-t{color:#64748b;min-width:70px;font-size:10px;font-variant-numeric:tabular-nums}
+.wh-report .wh-stage-body .wh-ev-tag{background:#e0e7ff;color:#3730a3;font-size:9px;padding:1px 5px;border-radius:2px;text-transform:uppercase;letter-spacing:.03em;font-weight:600;flex-shrink:0;height:16px;line-height:14px}
+.wh-report .wh-stage-body .wh-ev-tag.ins{background:#fef3c7;color:#92400e}
+.wh-report .wh-stage-body .wh-ev-tag.fit{background:#dcfce7;color:#166534}
+.wh-report .wh-stage-body .wh-ev-tag.dis{background:#fee2e2;color:#991b1b}
+.wh-report .wh-stage-body .wh-ev-tag.reg{background:#dbeafe;color:#1e40af}
+.wh-report .wh-stage-body .wh-ev-tag.adv{background:#e2e8f0;color:#475569}
+.wh-report .wh-callout{background:#fef9c3;border-left:4px solid #eab308;padding:10px 14px;margin:8px 0;font-size:11px;color:#78350f;border-radius:2px;font-family:Arial,sans-serif}
+.wh-report .wh-callout b{color:#92400e}
+.wh-report .wh-dwellbar{display:flex;align-items:center;gap:0;height:24px;margin:8px 0 4px;border-radius:3px;overflow:hidden;border:1px solid #cbd5e1;background:#f8fafc}
+.wh-report .wh-dwellbar-seg{height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700;text-shadow:0 0 3px rgba(0,0,0,.4);font-family:Arial,sans-serif;overflow:hidden;white-space:nowrap}
+.wh-report .wh-dwelllegend{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:10px;color:#475569;font-family:Arial,sans-serif}
+.wh-report .wh-dwelllegend span{display:inline-flex;align-items:center;gap:4px}
+.wh-report .wh-dwelllegend i{display:inline-block;width:10px;height:10px;border-radius:2px}
+.wh-report .wh-footer{margin-top:20px;padding-top:10px;border-top:2px solid #0f172a;font-size:10px;color:#64748b;text-align:center;font-family:Arial,sans-serif}
+
+/* --- Print-friendly view --- */
+@media print{
+  body>*:not(#ws-history-modal):not(#comp-history-modal):not(.modal.on){display:none !important}
+  .modal{position:static !important;background:#fff !important;padding:0 !important;display:block !important;overflow:visible !important}
+  .modal-box{position:static !important;box-shadow:none !important;border:none !important;max-height:none !important;padding:20px !important;max-width:none !important;width:auto !important}
+  .mbtns{display:none !important}
+  .wh-report h2{background:#333 !important;color:#fff !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .wh-report .wh-meta{background:#f5f5f5 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .wh-report table.wh-tbl th{background:#eee !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .wh-report table.wh-tbl tr:nth-child(even) td{background:#fafafa !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .wh-report .wh-stage.current{background:#fffbea !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .wh-report .wh-stage{page-break-inside:avoid}
+  .wh-report .wh-dwellbar-seg{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  @page{size:A4;margin:15mm}
+}
 </style>
 </head>
 <body>
@@ -8716,11 +8767,12 @@ function openWheelsetHistory(wsId){
   var ws = WS[wsId] || ARCHIVE[wsId];
   if(!ws){ toast('Wheelset '+wsId+' not found', 'err'); return; }
   var isArchived = !!ARCHIVE[wsId];
+  var isDisassembled = isArchived && ws.disposition === 'disassembled';
   var modal = ensureWsHistoryModal();
   var box = modal.querySelector('.modal-box');
-  var posLabels = {axle:'Axle', wheelA:'Wheel disc A', wheelB:'Wheel disc B', brakeA:'Brake disc A', brakeB:'Brake disc B', ctrbA:'CTRB A', ctrbB:'CTRB B'};
+  var posLabels = {axle:'Axle', wheelA:'Wheel disc A', wheelB:'Wheel disc B', brakeA:'Brake disc A', brakeB:'Brake disc B', ctrbA:'CTRB bearing A', ctrbB:'CTRB bearing B'};
 
-  // Pull all events for this wheelset from GLOBAL_LOG, oldest-first for chronological reading
+  // Pull all events for this wheelset, sorted oldest-first
   var events = GLOBAL_LOG.filter(function(ev){ return ev.wsId === wsId; })
     .slice()
     .sort(function(a,b){
@@ -8729,139 +8781,291 @@ function openWheelsetHistory(wsId){
       return (a.seq||0) - (b.seq||0);
     });
 
-  // Group events into stages by walking through and tracking "current stage" via 'adv' events.
   var stages = buildStageTimeline(wsId, ws, events);
   var arrivalSnapshot = buildArrivalSnapshot(ws, events);
 
-  var isDisassembled = isArchived && ws.disposition === 'disassembled';
-  var badgeHtml = '';
-  var subText = 'Complete lifecycle from arrival to current state.';
-  if(isDisassembled){
-    badgeHtml = ' <span style="font-size:11px;background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:3px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-left:6px">Disassembled</span>';
-    subText = 'Complete lifecycle from arrival to disassembly at Wheel Press. Components dispersed to pools.';
-  } else if(isArchived){
-    badgeHtml = ' <span style="font-size:11px;background:#dbeafe;color:#1e40af;padding:2px 7px;border-radius:3px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-left:6px">Dispatched</span>';
-    subText = 'Complete lifecycle from arrival to dispatch.';
-  }
+  // Parse the Insp-1 event message to extract case + defective components
+  var insp1 = null;
+  events.forEach(function(ev){
+    if(ev.tag === 'ins' && /Insp-?\s*1/i.test(ev.msg || '')){
+      var caseMatch = (ev.msg||'').match(/Case\s*(\d)/i);
+      var defectMatch = (ev.msg||'').match(/defective:\s*([^—\n]*)/i);
+      insp1 = {
+        ts: ev.ts, tsStr: ev.timeStr || '',
+        case: caseMatch ? parseInt(caseMatch[1]) : (ws.case || null),
+        defects: defectMatch ? defectMatch[1].trim() : (/all serviceable|all-ok/i.test(ev.msg||'') ? 'none — all serviceable' : null),
+        rawMsg: ev.msg
+      };
+    }
+  });
+  if(!insp1 && ws.case){ insp1 = {case: ws.case, defects:null, ts:null, tsStr:null, rawMsg:null}; }
 
+  // Parse Insp-2 event message → structured measurements
+  var insp2 = null;
+  events.forEach(function(ev){
+    if(ev.tag === 'ins' && /Insp-?\s*2/i.test(ev.msg || '')){
+      var m = ev.msg || '';
+      var outcome = /Defective/i.test(m) ? 'Defective' : /Needs AJTB|AJTB/i.test(m) ? 'Needs AJTB' : /OK/.test(m) ? 'OK' : null;
+      var jA = m.match(/Side A journal (\S+)\s*mm/i);
+      var sA = m.match(/Side A[^;]*shoulder (\S+)\s*mm/i);
+      var jB = m.match(/Side B journal (\S+)\s*mm/i);
+      var sB = m.match(/Side B[^;]*shoulder (\S+)\s*mm/i);
+      insp2 = {
+        ts: ev.ts, tsStr: ev.timeStr || '',
+        outcome: outcome,
+        journalA: jA ? jA[1] : null, shoulderA: sA ? sA[1] : null,
+        journalB: jB ? jB[1] : null, shoulderB: sB ? sB[1] : null,
+        rawMsg: ev.msg
+      };
+    }
+  });
+
+  // Parse Insp-3 checks (individual pass/fail + measurement values)
+  var insp3 = null;
+  events.forEach(function(ev){
+    if(ev.tag === 'ins' && /Insp-?\s*3/i.test(ev.msg || '')){
+      var m = ev.msg || '';
+      var checks = {};
+      var pairs = [
+        {k:'lateralA', re:/lat(?:eral)?\s*(?:play)?\s*A[^:]*:\s*([0-9.]+)/i},
+        {k:'lateralB', re:/lat(?:eral)?\s*(?:play)?\s*B[^:]*:\s*([0-9.]+)/i},
+        {k:'wheelDiaA', re:/wheel\s*dia\s*A[^:]*:\s*([0-9.]+)/i},
+        {k:'wheelDiaB', re:/wheel\s*dia\s*B[^:]*:\s*([0-9.]+)/i},
+        {k:'torque', re:/torque[^:]*:\s*(OK|NOT\s*OK|not-?ok|pass|fail)/i},
+        {k:'paint', re:/paint[^:]*:\s*(OK|NOT\s*OK|pass|fail)/i},
+        {k:'ust', re:/UST[^:]*:\s*(OK|NOT\s*OK|pass|fail)/i},
+        {k:'eca', re:/ECA[^:]*:\s*(OK|NOT\s*OK|pass|fail)/i}
+      ];
+      pairs.forEach(function(p){ var mm = m.match(p.re); if(mm) checks[p.k] = mm[1]; });
+      insp3 = { ts: ev.ts, tsStr: ev.timeStr || '', checks: checks, rawMsg: ev.msg };
+    }
+  });
+
+  // Find component-change events (disasm / reassemble / mount) to build the "changes" table
+  var componentChanges = [];
+  events.forEach(function(ev){
+    if(ev.tag === 'dis' || ev.tag === 'fit'){
+      componentChanges.push({
+        ts: ev.ts, tsStr: ev.timeStr || '',
+        stage: (ev.meta && (M_LABEL[ev.meta.fromLoc] || M_LABEL[ev.meta.toLoc])) || 'Wheel Press',
+        type: ev.tag === 'dis' ? 'removal' : 'fitment',
+        msg: ev.msg
+      });
+    }
+  });
+
+  // Compute total dwell breakdown by stage — for the summary bar
+  var totalDwellMs = 0;
+  var dwellByStage = {};
+  stages.forEach(function(st){
+    if(st.dwellMs != null){ totalDwellMs += st.dwellMs; dwellByStage[st.stageName] = (dwellByStage[st.stageName]||0) + st.dwellMs; }
+  });
+
+  // ======= RENDER =======
   var h = '';
-  h += '<div class="modal-ttl">Wheelset history · <span style="font-variant-numeric:tabular-nums">'+escapeHtml(wsId)+'</span>'+badgeHtml+'</div>';
-  h += '<div class="modal-sub">'+subText+'</div>';
+  h += '<div class="wh-report">';
 
-  // -------- Identity / metadata --------
-  h += '<div class="sechd">Wheelset identity</div>';
-  h += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;padding:10px 12px;font-size:12px;line-height:1.7">';
-  h += '<b>Wheelset ID:</b> '+escapeHtml(wsId)+'<br>';
-  h += '<b>Coach / Bogie:</b> '+escapeHtml(ws.c||'?')+' / '+escapeHtml(ws.b||'?')+'<br>';
-  h += '<b>Arrived:</b> '+escapeHtml(ws.ar||'?')+'<br>';
-  if(isDisassembled){
-    h += '<b>Disassembled at WP:</b> '+escapeHtml(ws.disassembledAtStr||'?')+'<br>';
-    if(ws.totalDwellMs) h += '<b>Total dwell (arrival → disassembly):</b> '+(ws.totalDwellMs/3600000).toFixed(1)+' hours<br>';
-  } else if(isArchived){
-    h += '<b>Dispatched:</b> '+escapeHtml(ws.dispatchedAtStr||'?')+'<br>';
-    if(ws.totalDwellMs) h += '<b>Total dwell:</b> '+(ws.totalDwellMs/3600000).toFixed(1)+' hours<br>';
-  } else {
-    h += '<b>Current stage:</b> '+(M_LABEL[ws.loc]||ws.loc)+'<br>';
-    h += '<b>Time in shop:</b> '+hoursSince(ws.arTs)+'<br>';
-  }
-  if(ws.case) h += '<b>Case:</b> Case '+ws.case+(ws.case===1?' (full overhaul)':ws.case===2?' (WD only)':ws.case===3?' (CTRB only)':ws.case===4?' (profile check only)':'')+'<br>';
-  if(ws.insp2Decision) h += '<b>Axle outcome at Insp-2:</b> '+ws.insp2Decision.toUpperCase()+(ws.needsAjtb?' (needs AJTB)':'')+(ws.axleDefective?' (defective)':'')+'<br>';
+  // Report header
+  h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:12px">';
+  h += '<div>';
+  h += '<div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;font-family:Arial,sans-serif">Indian Railways · Northern Railway · Sonipat</div>';
+  h += '<h1>Wheelset Lifecycle Report</h1>';
+  h += '<div style="font-size:13px;color:#334155;font-weight:600;margin-bottom:2px">Wheelset <span style="font-family:\'Courier New\',monospace">'+escapeHtml(wsId)+'</span>';
+  if(isDisassembled) h += ' <span style="background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:2px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;margin-left:6px">Disassembled</span>';
+  else if(isArchived) h += ' <span style="background:#dbeafe;color:#1e40af;padding:2px 7px;border-radius:2px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;margin-left:6px">Dispatched</span>';
+  else h += ' <span style="background:#dcfce7;color:#166534;padding:2px 7px;border-radius:2px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;margin-left:6px">Active</span>';
+  h += '</div>';
+  h += '<div class="wh-sub">Generated '+escapeHtml(formatLocalTime(Date.now()))+' · Complete lifecycle from arrival to '+(isDisassembled?'disassembly':isArchived?'dispatch':'current stage')+'</div>';
+  h += '</div>';
   h += '</div>';
 
-  // -------- Arrival snapshot --------
-  h += '<div class="sechd" style="margin-top:14px">Components when wheelset arrived</div>';
+  // Identity block
+  h += '<div class="wh-meta">';
+  h += '<b>Wheelset ID</b><span>'+escapeHtml(wsId)+'</span>';
+  h += '<b>Coach / Bogie</b><span>'+escapeHtml(ws.c||'-')+' · '+escapeHtml(ws.b||'-')+'</span>';
+  h += '<b>Arrived</b><span>'+escapeHtml(ws.ar || (ws.arTs ? formatLocalTime(ws.arTs) : '-'))+'</span>';
+  if(isDisassembled){
+    h += '<b>Disassembled</b><span>'+escapeHtml(ws.disassembledAtStr||'-')+'</span>';
+    if(ws.totalDwellMs) h += '<b>Total dwell</b><span>'+(ws.totalDwellMs/3600000).toFixed(1)+' hours</span>'; else h += '<b></b><span></span>';
+  } else if(isArchived){
+    h += '<b>Dispatched</b><span>'+escapeHtml(ws.dispatchedAtStr||'-')+'</span>';
+    if(ws.totalDwellMs) h += '<b>Total dwell</b><span>'+(ws.totalDwellMs/3600000).toFixed(1)+' hours</span>'; else h += '<b></b><span></span>';
+    if(ws.dispatchDest) h += '<b>Overhauling type</b><span>'+escapeHtml(ws.dispatchDest)+'</span>';
+  } else {
+    h += '<b>Current stage</b><span>'+escapeHtml(M_LABEL[ws.loc]||ws.loc||'-')+'</span>';
+    h += '<b>Time in shop</b><span>'+hoursSince(ws.arTs)+'</span>';
+  }
+  h += '<b>Inspection case</b><span>'+(ws.case?('Case '+ws.case+(ws.case===1?' · full overhaul':ws.case===2?' · wheel disc only':ws.case===3?' · CTRB only':ws.case===4?' · all serviceable':'')):'not yet inspected')+'</span>';
+  if(ws.insp2Decision) h += '<b>Axle at Insp-2</b><span>'+escapeHtml(ws.insp2Decision.toUpperCase())+(ws.needsAjtb?' · needs AJTB':'')+'</span>';
+  h += '</div>';
+
+  // Time distribution bar (only if we have real stage dwell data)
+  if(totalDwellMs > 0 && Object.keys(dwellByStage).length >= 2){
+    h += '<h2>Time distribution across stages</h2>';
+    var stageColors = ['#3b82f6','#8b5cf6','#ec4899','#f59e0b','#10b981','#06b6d4','#6366f1','#ef4444','#84cc16','#a855f7','#0891b2','#d97706'];
+    var stageKeys = Object.keys(dwellByStage);
+    h += '<div class="wh-dwellbar">';
+    stageKeys.forEach(function(k, i){
+      var pct = (dwellByStage[k]/totalDwellMs)*100;
+      var color = stageColors[i % stageColors.length];
+      h += '<div class="wh-dwellbar-seg" style="width:'+pct.toFixed(2)+'%;background:'+color+'" title="'+escapeHtml(k)+': '+formatDwell(dwellByStage[k])+'">'+(pct >= 5 ? k.substring(0, Math.max(3, Math.floor(pct/3))) : '')+'</div>';
+    });
+    h += '</div>';
+    h += '<div class="wh-dwelllegend">';
+    stageKeys.forEach(function(k, i){
+      var color = stageColors[i % stageColors.length];
+      h += '<span><i style="background:'+color+'"></i>'+escapeHtml(k)+' · '+formatDwell(dwellByStage[k])+'</span>';
+    });
+    h += '</div>';
+  }
+
+  // Arrival snapshot table
+  h += '<h2>1. Components at arrival</h2>';
   if(arrivalSnapshot && Object.keys(arrivalSnapshot).length){
     var hasUnknown = Object.keys(arrivalSnapshot).some(function(k){ return arrivalSnapshot[k] && arrivalSnapshot[k]._unknown; });
     if(hasUnknown){
-      h += '<div style="font-size:10px;color:#92400e;background:#fef3c7;border-left:3px solid #fbbf24;padding:5px 8px;margin-bottom:6px;border-radius:3px">Some positions are best-guess — this wheelset already had replacements before tracking began. Positions marked <i>(was already swapped)</i> show the serial that was on it when tracking started, not necessarily the very first one.</div>';
+      h += '<div class="wh-callout"><b>Note:</b> Some positions are best-guess — this wheelset already had replacements before tracking began. Positions marked <i>(was already swapped)</i> show the serial that was on it when tracking started, not necessarily the very first one.</div>';
     }
-    h += '<div style="border:1px solid #e2e8f0;border-radius:5px;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">';
-    h += '<thead><tr style="background:#f8fafc"><th style="text-align:left;padding:6px 10px;font-size:10px;color:#64748b;text-transform:uppercase">Position</th><th style="text-align:left;padding:6px 10px;font-size:10px;color:#64748b;text-transform:uppercase">Serial</th><th style="text-align:left;padding:6px 10px;font-size:10px;color:#64748b;text-transform:uppercase">Source</th><th style="text-align:left;padding:6px 10px;font-size:10px;color:#64748b;text-transform:uppercase">Initial measurement</th></tr></thead><tbody>';
-    // Always show all 7 positions in fixed order
+    h += '<table class="wh-tbl">';
+    h += '<thead><tr><th style="width:20%">Position</th><th style="width:22%">Serial number</th><th style="width:20%">Source</th><th>Initial measurement</th></tr></thead><tbody>';
     ['axle','wheelA','wheelB','brakeA','brakeB','ctrbA','ctrbB'].forEach(function(pos){
       var c = arrivalSnapshot[pos];
-      h += '<tr><td style="padding:6px 10px;border-top:1px solid #f1f5f9">'+posLabels[pos]+'</td>';
       if(!c){
-        h += '<td colspan="3" style="padding:6px 10px;border-top:1px solid #f1f5f9;color:#94a3b8;font-style:italic">not recorded</td></tr>';
+        h += '<tr><td>'+posLabels[pos]+'</td><td colspan="3" style="color:#94a3b8;font-style:italic">not recorded</td></tr>';
         return;
       }
       var meas = '';
-      if(c.journalDia != null){
-        meas = c.journalDia+' mm (journal)';
-        if(c.shoulderDia != null) meas += ' · '+c.shoulderDia+' mm (shoulder)';
-      }
+      if(c.journalDia != null){ meas = c.journalDia+' mm (journal)'; if(c.shoulderDia != null) meas += ' · '+c.shoulderDia+' mm (shoulder)'; }
       else if(c.dia != null) meas = c.dia+' mm (dia)';
       else if(c.thickness != null) meas = c.thickness+' mm (thickness)';
       else if(c.mountingDate) meas = c.mountingDate+' (mounted)';
       else if(c.mfgDate) meas = c.mfgDate+' (mfg)';
-      var srcLabel = c._unknown ? 'was already swapped'
-        : c.t==='here'||c.t==='orig' ? 'arrived with WS'
-        : c.t==='new' ? 'new'
-        : c.t==='pool' ? 'from pool'
-        : c.t==='refurb' ? 'refurbished'
-        : (c.t||'?');
-      var srcStyle = c._unknown ? 'color:#92400e;font-style:italic' : 'color:#64748b';
-      h += '<td style="padding:6px 10px;border-top:1px solid #f1f5f9;font-variant-numeric:tabular-nums;font-weight:600">'+escapeHtml(c.id||'—')+'</td>';
-      h += '<td style="padding:6px 10px;border-top:1px solid #f1f5f9;'+srcStyle+'">'+srcLabel+'</td>';
-      h += '<td style="padding:6px 10px;border-top:1px solid #f1f5f9;font-variant-numeric:tabular-nums">'+escapeHtml(meas)+'</td></tr>';
+      var src = c._unknown ? 'was already swapped'
+        : c.t==='here'||c.t==='orig' ? 'arrived with wheelset'
+        : c.t==='new' ? 'new' : c.t==='pool' ? 'from pool' : c.t==='refurb' ? 'refurbished' : (c.t||'?');
+      h += '<tr><td><b>'+posLabels[pos]+'</b></td>';
+      h += '<td style="font-family:\'Courier New\',monospace;font-weight:600">'+escapeHtml(c.id||'—')+'</td>';
+      h += '<td style="color:#64748b">'+escapeHtml(src)+'</td>';
+      h += '<td>'+escapeHtml(meas || '—')+'</td></tr>';
     });
-    h += '</tbody></table></div>';
+    h += '</tbody></table>';
   } else {
-    h += '<div style="color:#94a3b8;font-size:11px;font-style:italic;padding:8px 0">Arrival snapshot not recorded.</div>';
+    h += '<div class="wh-callout">Arrival snapshot not recorded for this wheelset.</div>';
   }
 
-  // -------- Stage timeline --------
-  h += '<div class="sechd" style="margin-top:14px">Stage-by-stage journey · '+stages.length+' stage visit(s)</div>';
-  if(stages.length === 0){
-    h += '<div style="color:#94a3b8;font-size:11px;font-style:italic;padding:8px 0">No stage transitions recorded yet.</div>';
+  // Inspection 1 result
+  h += '<h2>2. Inspection 1 · case decision</h2>';
+  if(insp1){
+    h += '<table class="wh-tbl"><tbody>';
+    h += '<tr><th style="width:30%">Case decided</th><td>'+(insp1.case?'<b>Case '+insp1.case+'</b>'+(insp1.case===1?' — full overhaul (all components dismounted)':insp1.case===2?' — wheel disc replacement':insp1.case===3?' — CTRB replacement':insp1.case===4?' — profile check only, no dismount':''):'<i>not recorded</i>')+'</td></tr>';
+    h += '<tr><th>Defective components</th><td>'+(insp1.defects ? escapeHtml(insp1.defects) : '<i>not itemized</i>')+'</td></tr>';
+    h += '<tr><th>Inspected at</th><td>'+escapeHtml(insp1.tsStr || '<i>time not recorded</i>')+'</td></tr>';
+    h += '</tbody></table>';
   } else {
-    h += '<div style="display:flex;flex-direction:column;gap:8px">';
-    stages.forEach(function(st, idx){
+    h += '<div class="wh-callout">Inspection 1 not yet performed.</div>';
+  }
+
+  // Inspection 2 measurements
+  h += '<h2>3. Inspection 2 · axle measurements</h2>';
+  if(insp2){
+    h += '<table class="wh-tbl">';
+    h += '<thead><tr><th style="width:30%">Measurement</th><th>Side A</th><th>Side B</th></tr></thead><tbody>';
+    h += '<tr><td><b>Journal diameter</b></td><td>'+(insp2.journalA?escapeHtml(insp2.journalA)+' mm':'<i>—</i>')+'</td><td>'+(insp2.journalB?escapeHtml(insp2.journalB)+' mm':'<i>—</i>')+'</td></tr>';
+    h += '<tr><td><b>Shoulder diameter</b></td><td>'+(insp2.shoulderA?escapeHtml(insp2.shoulderA)+' mm':'<i>—</i>')+'</td><td>'+(insp2.shoulderB?escapeHtml(insp2.shoulderB)+' mm':'<i>—</i>')+'</td></tr>';
+    h += '<tr><td><b>Outcome</b></td><td colspan="2"><b style="color:'+(insp2.outcome==='OK'?'#166534':insp2.outcome==='Defective'?'#991b1b':'#92400e')+'">'+escapeHtml(insp2.outcome||'not stated')+'</b></td></tr>';
+    h += '<tr><td><b>Inspected at</b></td><td colspan="2">'+escapeHtml(insp2.tsStr || '')+'</td></tr>';
+    h += '</tbody></table>';
+  } else if(ws.case === 4){
+    h += '<div class="wh-callout">Case 4 (all serviceable) — Inspection 2 skipped.</div>';
+  } else {
+    h += '<div class="wh-callout">Inspection 2 not yet performed.</div>';
+  }
+
+  // Component changes at reassembly
+  if(componentChanges.length){
+    h += '<h2>4. Component changes</h2>';
+    h += '<table class="wh-tbl">';
+    h += '<thead><tr><th style="width:14%">Time</th><th style="width:14%">Type</th><th>Details</th></tr></thead><tbody>';
+    componentChanges.forEach(function(cc){
+      var typeLabel = cc.type === 'removal' ? '<b style="color:#991b1b">Removal</b>' : '<b style="color:#166534">Fitment</b>';
+      h += '<tr><td>'+escapeHtml(cc.tsStr)+'</td><td>'+typeLabel+'</td><td>'+escapeHtml(cc.msg)+'</td></tr>';
+    });
+    h += '</tbody></table>';
+  }
+
+  // Stage timeline
+  h += '<h2>5. Stage-by-stage journey · '+stages.length+' visit'+(stages.length===1?'':'s')+'</h2>';
+  if(stages.length === 0){
+    h += '<div class="wh-callout">No stage transitions recorded yet.</div>';
+  } else {
+    stages.forEach(function(st){
       var dwellStr = st.dwellMs != null ? formatDwell(st.dwellMs) : (st.isCurrent ? 'still here' : '?');
-      var bgColor = st.isCurrent ? '#fef3c7' : '#f8fafc';
-      var borderColor = st.isCurrent ? '#fbbf24' : '#e2e8f0';
-      h += '<div style="background:'+bgColor+';border:1px solid '+borderColor+';border-radius:5px;padding:10px 12px;font-size:12px">';
-      h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px">';
-      h += '<div><b style="font-size:13px">'+escapeHtml(st.stageName)+'</b>';
-      if(st.isCurrent) h += ' <span style="background:#0f172a;color:#fff;font-size:9px;padding:1px 6px;border-radius:3px;text-transform:uppercase;letter-spacing:.04em;margin-left:4px">current</span>';
-      h += '<div style="font-size:10px;color:#64748b;margin-top:2px">Arrived '+escapeHtml(st.arrivedAt||'?')+(st.departedAt?' · departed '+escapeHtml(st.departedAt):'')+' · dwell '+dwellStr+'</div></div>';
+      h += '<div class="wh-stage'+(st.isCurrent?' current':'')+'">';
+      h += '<div class="wh-stage-hd">';
+      h += '<div class="wh-stage-name">'+escapeHtml(st.stageName)+(st.isCurrent?' <span style="background:#eab308;color:#fff;font-size:9px;padding:1px 6px;border-radius:2px;text-transform:uppercase;letter-spacing:.04em;margin-left:4px">Current</span>':'')+'</div>';
+      h += '<div class="wh-stage-time">'+escapeHtml(st.arrivedAt||'?')+(st.departedAt?' → '+escapeHtml(st.departedAt):'')+' · dwell '+dwellStr+'</div>';
       h += '</div>';
-      // Events that happened during this stage (excluding the 'adv' that brought it here)
       if(st.events && st.events.length){
-        h += '<div style="border-top:1px dashed '+borderColor+';margin-top:6px;padding-top:6px;font-size:11px;line-height:1.6">';
+        h += '<div class="wh-stage-body">';
         st.events.forEach(function(ev){
-          h += '<div style="display:flex;gap:8px;padding:2px 0">';
-          h += '<span style="font-variant-numeric:tabular-nums;color:#64748b;min-width:65px;font-size:10px">'+escapeHtml(ev.timeStr||'')+'</span>';
-          h += '<span class="hist-tag '+ev.tag+'" style="margin-right:4px;flex-shrink:0">'+(TAG_LABEL[ev.tag]||ev.tag)+'</span>';
-          h += '<span style="color:#334155;flex:1">'+escapeHtml(ev.msg||'')+'</span>';
+          h += '<div class="wh-ev">';
+          h += '<span class="wh-ev-t">'+escapeHtml(ev.timeStr||'')+'</span>';
+          h += '<span class="wh-ev-tag '+ev.tag+'">'+(TAG_LABEL[ev.tag]||ev.tag)+'</span>';
+          h += '<span style="flex:1">'+escapeHtml(ev.msg||'')+'</span>';
           h += '</div>';
         });
         h += '</div>';
       }
       h += '</div>';
     });
-    h += '</div>';
   }
 
-  // -------- Current / dispatched / disassembled components --------
+  // Inspection 3 checks (before "current components")
+  h += '<h2>6. Inspection 3 · final quality control</h2>';
+  if(insp3){
+    var ck = insp3.checks;
+    h += '<table class="wh-tbl">';
+    h += '<thead><tr><th style="width:40%">Check</th><th>Result</th></tr></thead><tbody>';
+    var rows = [
+      ['Bearing lateral play — Side A', ck.lateralA ? escapeHtml(ck.lateralA)+' mm' : null],
+      ['Bearing lateral play — Side B', ck.lateralB ? escapeHtml(ck.lateralB)+' mm' : null],
+      ['Wheel diameter — Side A', ck.wheelDiaA ? escapeHtml(ck.wheelDiaA)+' mm' : null],
+      ['Wheel diameter — Side B', ck.wheelDiaB ? escapeHtml(ck.wheelDiaB)+' mm' : null],
+      ['Torque check', ck.torque],
+      ['Paint integrity', ck.paint],
+      ['Ultrasonic test (UST)', ck.ust],
+      ['Eddy current array (ECA)', ck.eca]
+    ];
+    rows.forEach(function(r){
+      var v = r[1];
+      var okBad = v && /^(OK|pass)$/i.test(v);
+      var badBad = v && /(NOT|fail)/i.test(v);
+      var style = okBad ? 'color:#166534;font-weight:600' : badBad ? 'color:#991b1b;font-weight:600' : '';
+      h += '<tr><td><b>'+r[0]+'</b></td><td style="'+style+'">'+(v ? escapeHtml(v) : '<i style="color:#94a3b8">not recorded</i>')+'</td></tr>';
+    });
+    h += '<tr><td><b>Inspected at</b></td><td>'+escapeHtml(insp3.tsStr||'')+'</td></tr>';
+    h += '</tbody></table>';
+  } else if(isArchived){
+    h += '<div class="wh-callout">Inspection 3 details not itemized in event log (may pre-date detailed logging).</div>';
+  } else if(ws.loc === 'insp3' || ws.loc === 'dispatch'){
+    h += '<div class="wh-callout">Inspection 3 in progress or measurements not yet entered.</div>';
+  } else {
+    h += '<div class="wh-callout">Wheelset not yet at Inspection 3.</div>';
+  }
+
+  // Current / dispatch / disassembly components
   var componentsToShow = isArchived ? (ws.dispatchSnapshot || ws.f) : ws.f;
   var componentsHeader;
-  if(isDisassembled) componentsHeader = 'Components on wheelset at moment of disassembly (now in pools)';
-  else if(isArchived) componentsHeader = 'Components when wheelset dispatched';
-  else componentsHeader = 'Current components (now)';
-  h += '<div class="sechd" style="margin-top:14px">'+componentsHeader+'</div>';
+  if(isDisassembled) componentsHeader = '7. Components at moment of disassembly';
+  else if(isArchived) componentsHeader = '7. Components at dispatch';
+  else componentsHeader = '7. Current components';
+  h += '<h2>'+componentsHeader+'</h2>';
   if(componentsToShow){
-    h += '<div style="border:1px solid #e2e8f0;border-radius:5px;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">';
-    h += '<thead><tr style="background:#f8fafc"><th style="text-align:left;padding:6px 10px;font-size:10px;color:#64748b;text-transform:uppercase">Position</th><th style="text-align:left;padding:6px 10px;font-size:10px;color:#64748b;text-transform:uppercase">Serial</th><th style="text-align:left;padding:6px 10px;font-size:10px;color:#64748b;text-transform:uppercase">Source</th><th style="text-align:left;padding:6px 10px;font-size:10px;color:#64748b;text-transform:uppercase">'+(isArchived?'Final measurement':'Current measurement')+'</th></tr></thead><tbody>';
+    h += '<table class="wh-tbl">';
+    h += '<thead><tr><th style="width:20%">Position</th><th style="width:22%">Serial number</th><th style="width:20%">Source</th><th>'+(isArchived?'Final measurement':'Current measurement')+'</th></tr></thead><tbody>';
     ['axle','wheelA','wheelB','brakeA','brakeB','ctrbA','ctrbB'].forEach(function(pos){
       var c = componentsToShow[pos];
-      h += '<tr><td style="padding:6px 10px;border-top:1px solid #f1f5f9">'+posLabels[pos]+'</td>';
-      if(!c){
-        h += '<td colspan="3" style="padding:6px 10px;border-top:1px solid #f1f5f9;color:#94a3b8;font-style:italic">—</td></tr>';
-        return;
-      }
-      // Build measurement string from whatever fields are present.
-      // For axle, prefer per-side journal/shoulder, fall back to legacy single fields.
+      if(!c){ h += '<tr><td><b>'+posLabels[pos]+'</b></td><td colspan="3" style="color:#94a3b8;font-style:italic">—</td></tr>'; return; }
       var rightCol = '';
       if(pos === 'axle' && (c.journalDiaA != null || c.journalDiaB != null || c.shoulderDiaA != null || c.shoulderDiaB != null)){
         var parts = [];
@@ -8871,44 +9075,45 @@ function openWheelsetHistory(wsId){
         if(c.shoulderDiaB != null) parts.push('B: ' + c.shoulderDiaB + ' mm shoulder');
         rightCol = parts.join(' · ');
       }
-      else if(c.journalDia != null){
-        rightCol = c.journalDia+' mm (journal)';
-        if(c.shoulderDia != null) rightCol += ' · '+c.shoulderDia+' mm (shoulder)';
-      }
+      else if(c.journalDia != null){ rightCol = c.journalDia+' mm (journal)'; if(c.shoulderDia != null) rightCol += ' · '+c.shoulderDia+' mm (shoulder)'; }
       else if(c.dia != null) rightCol = c.dia+' mm (dia)';
       else if(c.thickness != null) rightCol = c.thickness+' mm (thickness)';
       else if(c.mountingDate || c.mfgDate){
         rightCol = (c.mountingDate || c.mfgDate) + (c.mountingDate ? ' (mounted)' : ' (mfg)');
         if(c.lateralPlay != null) rightCol += ' · ' + c.lateralPlay + ' mm lat play';
-      } else if(c.lateralPlay != null){
-        rightCol = c.lateralPlay + ' mm lat play';
       }
-      // Append any free-form note in muted text
-      if(c.n){ rightCol += (rightCol ? ' · ' : '') + c.n; }
-      h += '<td style="padding:6px 10px;border-top:1px solid #f1f5f9;font-variant-numeric:tabular-nums;font-weight:600">'+escapeHtml(c.id||'—')+'</td>';
-      h += '<td style="padding:6px 10px;border-top:1px solid #f1f5f9;color:#64748b">'+(c.t==='orig'||c.t==='here'?'arrived with WS':c.t==='new'?'new':c.t==='pool'?'from pool':c.t==='refurb'?'refurbished':c.t==='pnd'?'pending':c.t||'?')+'</td>';
-      h += '<td style="padding:6px 10px;border-top:1px solid #f1f5f9;font-variant-numeric:tabular-nums">'+escapeHtml(rightCol || '—')+'</td></tr>';
+      if(c.n && !rightCol.includes(c.n)){ rightCol += (rightCol ? ' · ' : '') + c.n; }
+      var srcLabel = c.t==='orig'||c.t==='here'?'arrived with wheelset':c.t==='new'?'new':c.t==='pool'?'from pool':c.t==='refurb'?'refurbished':c.t==='pnd'?'pending':c.t||'?';
+      h += '<tr><td><b>'+posLabels[pos]+'</b></td>';
+      h += '<td style="font-family:\'Courier New\',monospace;font-weight:600">'+escapeHtml(c.id||'—')+'</td>';
+      h += '<td style="color:#64748b">'+escapeHtml(srcLabel)+'</td>';
+      h += '<td>'+escapeHtml(rightCol || '—')+'</td></tr>';
     });
-    h += '</tbody></table></div>';
+    h += '</tbody></table>';
   }
 
-  // -------- Full event log --------
-  h += '<div class="sechd" style="margin-top:14px">Full event log · '+events.length+' event(s)</div>';
+  // Full event log (compact)
+  h += '<h2>8. Full event log · '+events.length+' event'+(events.length===1?'':'s')+'</h2>';
   if(events.length === 0){
-    h += '<div style="color:#94a3b8;font-size:11px;font-style:italic;padding:8px 0">No events recorded.</div>';
+    h += '<div class="wh-callout">No events recorded.</div>';
   } else {
-    h += '<div style="max-height:280px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:5px;background:#f8fafc">';
+    h += '<table class="wh-tbl">';
+    h += '<thead><tr><th style="width:14%">Time</th><th style="width:10%">Type</th><th>Description</th></tr></thead><tbody>';
     events.forEach(function(ev){
-      h += '<div style="padding:6px 10px;border-bottom:1px dashed #e2e8f0;font-size:11px">';
-      h += '<span style="font-variant-numeric:tabular-nums;color:#64748b;margin-right:8px;font-weight:500;display:inline-block;min-width:75px">'+escapeHtml(ev.timeStr||'')+'</span>';
-      h += '<span class="hist-tag '+ev.tag+'" style="margin-right:6px">'+(TAG_LABEL[ev.tag]||ev.tag)+'</span>';
-      h += '<span style="color:#334155">'+escapeHtml(ev.msg||'')+'</span>';
-      h += '</div>';
+      h += '<tr><td style="font-variant-numeric:tabular-nums">'+escapeHtml(ev.timeStr||'')+'</td>';
+      h += '<td><span class="wh-ev-tag '+ev.tag+'">'+(TAG_LABEL[ev.tag]||ev.tag)+'</span></td>';
+      h += '<td>'+escapeHtml(ev.msg||'')+'</td></tr>';
     });
-    h += '</div>';
+    h += '</tbody></table>';
   }
 
-  h += '<div class="mbtns"><button class="mbtn" data-act="exportWheelsetHistory" data-ws="'+escapeHtml(wsId)+'">Export as CSV</button>';
+  // Footer
+  h += '<div class="wh-footer">RCNK Wheel Shop Operations Dashboard · Report generated '+escapeHtml(formatLocalTime(Date.now()))+'</div>';
+  h += '</div>';  // end wh-report
+
+  h += '<div class="mbtns">';
+  h += '<button class="mbtn" onclick="window.print()">🖨 Print / Save as PDF</button>';
+  h += '<button class="mbtn" data-act="exportWheelsetHistory" data-ws="'+escapeHtml(wsId)+'">⤓ Export CSV</button>';
   h += '<button class="mbtn pri" data-act="closeWsHistory">Close</button></div>';
   box.innerHTML = h;
   modal.classList.add('on');
