@@ -8998,16 +8998,117 @@ function openWheelsetHistory(wsId){
   if(stages.length === 0){
     h += '<div class="wh-callout">No stage transitions recorded yet.</div>';
   } else {
+    // Description of what happens at each stage — shown as sub-caption
+    var stageDescriptions = {
+      'Entry': 'Wheelset received in the shop. Serial numbers of all 7 components recorded.',
+      'Cleaning': 'Wheelset cleaned to expose defects for inspection.',
+      'Inspection-1': 'Visual + dimensional survey. Case (1/2/3/4) decided, defective components identified.',
+      'CTRB Dismount': 'CTRB bearings removed. Bearings sent to CTRB pool for refurbishment.',
+      'Inspection-2': 'Axle measured — journal and shoulder diameter per side. Route decided (WP / AJTB / Portal Lathe).',
+      'Wheel Press': 'Full disassembly (Case 1) or reassembly with new/refurbished components.',
+      'AJTB': 'Axle journal turning — journal and shoulder diameters restored.',
+      'Portal Lathe': 'Wheel profile (tread and flange) turned to standard.',
+      'CTRB Mount': 'CTRB bearings mounted on the axle. Mounting date recorded.',
+      'Inspection-3': 'Final quality control — lateral play, wheel dia, torque, paint, UST, ECA.',
+      'Dispatch': 'Fit-for-service certified. Wheelset dispatched to SS1 / SS3 / Division.'
+    };
+
     stages.forEach(function(st){
       var dwellStr = st.dwellMs != null ? formatDwell(st.dwellMs) : (st.isCurrent ? 'still here' : '?');
+      var stageDesc = stageDescriptions[st.stageName] || '';
+
       h += '<div class="wh-stage'+(st.isCurrent?' current':'')+'">';
+
+      // Stage header
       h += '<div class="wh-stage-hd">';
       h += '<div class="wh-stage-name">'+escapeHtml(st.stageName)+(st.isCurrent?' <span style="background:#eab308;color:#fff;font-size:9px;padding:1px 6px;border-radius:2px;text-transform:uppercase;letter-spacing:.04em;margin-left:4px">Current</span>':'')+'</div>';
       h += '<div class="wh-stage-time">'+escapeHtml(st.arrivedAt||'?')+(st.departedAt?' → '+escapeHtml(st.departedAt):'')+' · dwell '+dwellStr+'</div>';
       h += '</div>';
-      if(st.events && st.events.length){
+
+      // What happens at this stage (only if we have a description)
+      if(stageDesc){
+        h += '<div style="font-size:10px;color:#64748b;font-style:italic;padding:2px 0 6px;font-family:Arial,sans-serif">'+escapeHtml(stageDesc)+'</div>';
+      }
+
+      // Extract structured details per stage type
+      var stageDetails = [];  // array of {label, value} pairs
+
+      // Inspection-1 stage — surface case decision + defects if recorded
+      if(st.stageName === 'Inspection-1' && insp1){
+        if(insp1.case) stageDetails.push({label:'Case decided', value:'Case '+insp1.case+(insp1.case===1?' (full overhaul)':insp1.case===2?' (wheel disc only)':insp1.case===3?' (CTRB only)':insp1.case===4?' (all serviceable)':'')});
+        if(insp1.defects) stageDetails.push({label:'Defective components', value:insp1.defects});
+      }
+      // Inspection-2 stage — surface measurements + outcome
+      else if(st.stageName === 'Inspection-2' && insp2){
+        if(insp2.journalA || insp2.journalB) stageDetails.push({label:'Journal diameter', value:'A: '+(insp2.journalA?insp2.journalA+' mm':'—')+' · B: '+(insp2.journalB?insp2.journalB+' mm':'—')});
+        if(insp2.shoulderA || insp2.shoulderB) stageDetails.push({label:'Shoulder diameter', value:'A: '+(insp2.shoulderA?insp2.shoulderA+' mm':'—')+' · B: '+(insp2.shoulderB?insp2.shoulderB+' mm':'—')});
+        if(insp2.outcome) stageDetails.push({label:'Outcome', value:insp2.outcome});
+      }
+      // Inspection-3 stage — surface all itemized checks
+      else if(st.stageName === 'Inspection-3' && insp3){
+        var ck = insp3.checks || {};
+        if(ck.lateralA || ck.lateralB) stageDetails.push({label:'Bearing lateral play', value:'A: '+(ck.lateralA?ck.lateralA+' mm':'—')+' · B: '+(ck.lateralB?ck.lateralB+' mm':'—')});
+        if(ck.wheelDiaA || ck.wheelDiaB) stageDetails.push({label:'Wheel diameter', value:'A: '+(ck.wheelDiaA?ck.wheelDiaA+' mm':'—')+' · B: '+(ck.wheelDiaB?ck.wheelDiaB+' mm':'—')});
+        var otherChecks = [];
+        if(ck.torque) otherChecks.push('Torque: '+ck.torque);
+        if(ck.paint) otherChecks.push('Paint: '+ck.paint);
+        if(ck.ust) otherChecks.push('UST: '+ck.ust);
+        if(ck.eca) otherChecks.push('ECA: '+ck.eca);
+        if(otherChecks.length) stageDetails.push({label:'Other checks', value:otherChecks.join(' · ')});
+      }
+
+      // Any operator captured on the station?
+      var opId = null;
+      if(st.stageName === 'Wheel Press' && OPERATORS && OPERATORS.wheelPress) opId = OPERATORS.wheelPress;
+      else if(st.stageName === 'Inspection-1' && OPERATORS && OPERATORS.insp1) opId = OPERATORS.insp1;
+      else if(st.stageName === 'Inspection-2' && OPERATORS && OPERATORS.insp2) opId = OPERATORS.insp2;
+      else if(st.stageName === 'Inspection-3' && OPERATORS && OPERATORS.insp3) opId = OPERATORS.insp3;
+      else if(st.stageName === 'AJTB' && OPERATORS && OPERATORS.ajtb) opId = OPERATORS.ajtb;
+      else if(st.stageName === 'Portal Lathe' && OPERATORS && OPERATORS.portalLathe) opId = OPERATORS.portalLathe;
+      else if(st.stageName === 'CTRB Mount' && OPERATORS && OPERATORS.ctrbMount) opId = OPERATORS.ctrbMount;
+      else if(st.stageName === 'CTRB Dismount' && OPERATORS && OPERATORS.ctrbDismount) opId = OPERATORS.ctrbDismount;
+      if(opId) stageDetails.push({label:'Operator on duty', value:opId});
+
+      // Component changes at this stage — extract from events at this stage
+      var stageComponentChanges = [];
+      (st.events||[]).forEach(function(ev){
+        if(ev.tag === 'dis' || ev.tag === 'fit'){
+          stageComponentChanges.push({time: ev.timeStr, type: ev.tag === 'dis' ? 'Removal' : 'Fitment', msg: ev.msg});
+        }
+      });
+
+      // Render the structured details as a small table
+      if(stageDetails.length > 0){
+        h += '<table class="wh-tbl" style="margin-top:6px">';
+        h += '<tbody>';
+        stageDetails.forEach(function(d){
+          h += '<tr><th style="width:35%;background:#f8fafc">'+escapeHtml(d.label)+'</th><td>'+escapeHtml(d.value)+'</td></tr>';
+        });
+        h += '</tbody></table>';
+      }
+
+      // Render component changes at this stage
+      if(stageComponentChanges.length > 0){
+        h += '<div style="margin-top:6px;padding:8px 12px;background:#f0fdf4;border-left:3px solid #16a34a;border-radius:3px;font-family:Arial,sans-serif;font-size:11px">';
+        h += '<div style="font-weight:700;color:#166534;margin-bottom:4px">Component activity at this stage</div>';
+        stageComponentChanges.forEach(function(cc){
+          var typeColor = cc.type === 'Removal' ? '#991b1b' : '#166534';
+          h += '<div style="padding:2px 0"><span style="color:#64748b;font-size:10px;margin-right:6px">'+escapeHtml(cc.time||'')+'</span><b style="color:'+typeColor+'">'+cc.type+':</b> '+escapeHtml(cc.msg)+'</div>';
+        });
+        h += '</div>';
+      }
+
+      // Any other events at this stage that weren't already surfaced above
+      var otherEvents = (st.events||[]).filter(function(ev){
+        // Skip events already surfaced by structured details / component changes
+        if(ev.tag === 'dis' || ev.tag === 'fit') return false;
+        // Skip Insp events for stages where they're already tabled
+        if(ev.tag === 'ins' && (st.stageName === 'Inspection-1' || st.stageName === 'Inspection-2' || st.stageName === 'Inspection-3')) return false;
+        return true;
+      });
+      if(otherEvents.length > 0){
         h += '<div class="wh-stage-body">';
-        st.events.forEach(function(ev){
+        otherEvents.forEach(function(ev){
           h += '<div class="wh-ev">';
           h += '<span class="wh-ev-t">'+escapeHtml(ev.timeStr||'')+'</span>';
           h += '<span class="wh-ev-tag '+ev.tag+'">'+(TAG_LABEL[ev.tag]||ev.tag)+'</span>';
@@ -9016,7 +9117,8 @@ function openWheelsetHistory(wsId){
         });
         h += '</div>';
       }
-      h += '</div>';
+
+      h += '</div>';  // end wh-stage
     });
   }
 
