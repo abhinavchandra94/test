@@ -1303,6 +1303,92 @@ function loadState(){
         w.arrivalSnapshot = snap2;
       }
     });
+
+    // v19 migration: retroactive arrival-snapshot backfill from edit events.
+    // For wheelsets edited before the pre-swap mirror was added, the arrival snapshot is
+    // stuck at the placeholder serials while the current f has the real ones. Walk edit
+    // events oldest-first; for each position, if arrivalSnapshot[pos].id matches the "from"
+    // side of an edit that happened BEFORE any dis/fit event, replace arrival with the
+    // "to" side. Same for measurements. Applied to both WS and ARCHIVE.
+    function _backfillArrivalFromEdits(w, wsId){
+      if(!w.arrivalSnapshot) return;
+      // Build a chronological list of this wheelset's events
+      var evs = GLOBAL_LOG.filter(function(ev){ return ev.wsId === wsId; })
+        .slice().sort(function(a,b){ return (a.ts||0) - (b.ts||0) || (a.seq||0) - (b.seq||0); });
+      // Find the timestamp of the first dis/fit event — arrival can't be updated past that
+      var firstSwapTs = null;
+      for(var i=0;i<evs.length;i++){
+        if(evs[i].tag === 'dis' || evs[i].tag === 'fit'){ firstSwapTs = evs[i].ts; break; }
+      }
+      // Position label → snapshot key map (matches the labels used in edit messages)
+      var LBL_TO_POS = {
+        'Axle': 'axle',
+        'Wheel disc A': 'wheelA',
+        'Wheel disc B': 'wheelB',
+        'Brake disc A': 'brakeA',
+        'Brake disc B': 'brakeB',
+        'CTRB A': 'ctrbA',
+        'CTRB B': 'ctrbB'
+      };
+      // Walk edits chronologically
+      evs.forEach(function(ev){
+        if(ev.tag !== 'edit') return;
+        if(firstSwapTs && ev.ts >= firstSwapTs) return;
+        var msg = ev.msg || '';
+        // Split on the standard separator used in save messages
+        var parts = msg.replace(/^Edited:\s*/, '').split(' · ');
+        parts.forEach(function(chunk){
+          // Match "Axle id: OLD → NEW"
+          var idMatch = chunk.match(/^(Axle|Wheel disc A|Wheel disc B|Brake disc A|Brake disc B|CTRB A|CTRB B) id:\s*(.+?)\s*→\s*(.+)$/);
+          if(idMatch){
+            var pos = LBL_TO_POS[idMatch[1]];
+            var oldId = idMatch[2].trim();
+            var newId = idMatch[3].trim();
+            if(pos && w.arrivalSnapshot[pos] && w.arrivalSnapshot[pos].id === oldId){
+              w.arrivalSnapshot[pos].id = newId;
+            }
+            return;
+          }
+          // Match "Axle Journal diameter: OLD → NEW mm" etc.
+          var measMatch = chunk.match(/^(Axle|Wheel disc A|Wheel disc B|Brake disc A|Brake disc B|CTRB A|CTRB B)\s+([^:]+):\s*(.+?)\s*→\s*(.+)$/);
+          if(measMatch){
+            var pos2 = LBL_TO_POS[measMatch[1]];
+            var newVal = measMatch[4].trim().replace(/\s*(mm|kg)\s*$/,'');
+            var num = parseFloat(newVal);
+            if(pos2 && w.arrivalSnapshot[pos2]){
+              var label = measMatch[2].trim().toLowerCase();
+              // Map field labels to snapshot keys (from ATTR_CONFIG)
+              if(label === 'journal diameter'){ w.arrivalSnapshot[pos2].journalDia = num; }
+              else if(label === 'shoulder diameter'){ w.arrivalSnapshot[pos2].shoulderDia = num; }
+              else if(label === 'diameter'){ w.arrivalSnapshot[pos2].dia = num; }
+              else if(label === 'thickness'){ w.arrivalSnapshot[pos2].thickness = num; }
+              else if(label === 'mounting date' || label === 'mfg date'){
+                // For dates the "new value" is a string
+                var dateVal = measMatch[4].trim();
+                if(label === 'mounting date') w.arrivalSnapshot[pos2].mountingDate = dateVal;
+                else w.arrivalSnapshot[pos2].mfgDate = dateVal;
+              }
+            }
+          }
+        });
+      });
+    }
+    Object.keys(WS).forEach(function(id){ _backfillArrivalFromEdits(WS[id], id); });
+    Object.keys(ARCHIVE).forEach(function(id){ _backfillArrivalFromEdits(ARCHIVE[id], id); });
+
+    // v20 migration: backfill arrivalBogie for wheelsets that don't have it. For active
+    // wheelsets, ws.b is still the arrival bogie (never overwritten). For old archived
+    // wheelsets that were dispatched before v7, ws.b may be the dispatch bogie because
+    // the previous code overwrote it — for those we use ws.b as best guess (it's often
+    // the same as the arrival bogie anyway when bogies aren't swapped).
+    Object.keys(WS).forEach(function(id){
+      var w = WS[id];
+      if(!w.arrivalBogie && w.b) w.arrivalBogie = w.b;
+    });
+    Object.keys(ARCHIVE).forEach(function(id){
+      var w = ARCHIVE[id];
+      if(!w.arrivalBogie && w.b) w.arrivalBogie = w.b;
+    });
     // v18 migration: backfill COMPONENT_LOG with synthetic first_seen entries for every
     // component currently observable in WS, ARCHIVE, POOL, ATL_WIP, VTL_WIP that doesn't
     // already have a log. This means History will show at least "first seen here" entries
@@ -6168,7 +6254,9 @@ var Actions = {
     snapshot.dispatchedAtStr = dispatchLabel;
     snapshot.dispatchDest = dest;
     snapshot.dispatchBogie = bogie;
-    snapshot.b = bogie;  // Update the bogie of record
+    if(!snapshot.arrivalBogie) snapshot.arrivalBogie = ws.b;  // preserve arrival bogie (for old wheelsets that didn't have it)
+    // Note: we intentionally do NOT overwrite snapshot.b — that stays as the arrival bogie.
+    // dispatchBogie is stored separately so the report can show both.
     snapshot.totalDwellMs = dispatchTs - (ws.arTs || dispatchTs);
     ARCHIVE[wsId] = snapshot;
     delete WS[wsId];
@@ -6922,7 +7010,7 @@ document.getElementById('m-save').addEventListener('click', function(){
     ctrbB: {id: ctB, t:'here'}
   };
   WS[id] = {
-    c: coach, b: bogie, loc: 'entry', ar: arrivalLabel, arTs: arrivalTs, d: isBackdated ? 'backdated arrival' : 'just registered',
+    c: coach, b: bogie, arrivalBogie: bogie, loc: 'entry', ar: arrivalLabel, arTs: arrivalTs, d: isBackdated ? 'backdated arrival' : 'just registered',
     t: 'Serial capture at Entry',
     f: JSON.parse(JSON.stringify(initF)),
     arrivalSnapshot: JSON.parse(JSON.stringify(initF)),
@@ -8921,7 +9009,13 @@ function openWheelsetHistory(wsId){
   // Identity block
   h += '<div class="wh-meta">';
   h += '<b>Wheelset ID</b><span>'+escapeHtml(wsId)+'</span>';
-  h += '<b>Coach / Bogie</b><span>'+escapeHtml(ws.c||'-')+' · '+escapeHtml(ws.b||'-')+'</span>';
+  h += '<b>Coach</b><span>'+escapeHtml(ws.c||'-')+'</span>';
+  // Arrival bogie: use ws.arrivalBogie if set, else fall back to ws.b (for legacy data)
+  var arrivalBogie = ws.arrivalBogie || ws.b || '-';
+  h += '<b>Arrival bogie</b><span>'+escapeHtml(arrivalBogie)+'</span>';
+  if(ws.dispatchBogie){
+    h += '<b>Dispatch bogie</b><span>'+escapeHtml(ws.dispatchBogie)+(ws.dispatchBogie !== arrivalBogie ? ' <i style="color:#64748b;font-size:10px">(different from arrival)</i>' : '')+'</span>';
+  }
   h += '<b>Arrived</b><span>'+escapeHtml(ws.ar || (ws.arTs ? formatLocalTime(ws.arTs) : '-'))+'</span>';
   if(isDisassembled){
     h += '<b>Disassembled</b><span>'+escapeHtml(ws.disassembledAtStr||'-')+'</span>';
