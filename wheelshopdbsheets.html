@@ -6415,6 +6415,16 @@ var Actions = {
 
     var changes = [];
     if(renamedFrom) changes.push('Wheelset ID: '+renamedFrom+' → '+renamedTo);
+    // Rule for mirroring edits into the arrival snapshot:
+    // Until the wheelset moves past Inspection-2, any edit to component serials or
+    // measurements is treated as the operator filling in the actual initial values
+    // that were previously placeholders. Once the wheelset reaches Wheel Press / AJTB /
+    // Portal Lathe / CTRB Mount / Insp-3 / Dispatch, edits only update the current
+    // (final) components — the arrival snapshot is frozen because by then, physical
+    // component swaps have started to happen.
+    var PRE_SWAP_STAGES = {entry:1, cleaning:1, insp1:1, ctrbDismount:1, insp2:1};
+    var canMirrorToArrival = !!PRE_SWAP_STAGES[ws.loc];
+
     ['axle','wheelA','wheelB','brakeA','brakeB','ctrbA','ctrbB'].forEach(function(k){
       var idEl = document.getElementById('ew-'+k+'-id');
       var attrEl = document.getElementById('ew-'+k+'-attr');
@@ -6425,6 +6435,9 @@ var Actions = {
         if(newId && newId !== comp.id){
           changes.push(lbl(k)+' id: '+comp.id+' → '+newId);
           comp.id = newId;
+          if(canMirrorToArrival && ws.arrivalSnapshot && ws.arrivalSnapshot[k]){
+            ws.arrivalSnapshot[k].id = newId;
+          }
         }
       }
 
@@ -6441,12 +6454,18 @@ var Actions = {
           if(raw !== comp[cfg.field]){
             changes.push(lbl(k)+' '+cfg.label+': '+(comp[cfg.field]||'—')+' → '+raw);
             comp[cfg.field] = raw;
+            if(canMirrorToArrival && ws.arrivalSnapshot && ws.arrivalSnapshot[k]){
+              ws.arrivalSnapshot[k][cfg.field] = raw;
+            }
           }
         } else {
           var n = parseFloat(raw);
           if(!isNaN(n) && n !== comp[cfg.field]){
             changes.push(lbl(k)+' '+cfg.label+': '+(comp[cfg.field]||'—')+' → '+n+' '+cfg.unit);
             comp[cfg.field] = n;
+            if(canMirrorToArrival && ws.arrivalSnapshot && ws.arrivalSnapshot[k]){
+              ws.arrivalSnapshot[k][cfg.field] = n;
+            }
           }
         }
       }
@@ -8152,16 +8171,30 @@ function runGlobalSearch(query){
   var latheHits = [];
   var archiveHits = [];
 
+  // Detect bogie query for exact matching (e.g. "B1" matches only B1, not B10)
+  var bogieQueryMatch = query.match(/^b\s*-?\s*(\d+)$/i);
+  var isBogieQueryEarly = !!bogieQueryMatch;
+  var bogieExactValue = isBogieQueryEarly ? ('B' + bogieQueryMatch[1]).toLowerCase() : null;
+
   // 1. Match wheelsets — id, coach, bogie. Active and archived.
   Object.keys(WS).forEach(function(id){
     var w = WS[id];
-    var hay = (id+' '+(w.c||'')+' '+(w.b||'')+' '+(w.t||'')).toLowerCase();
-    if(hay.indexOf(query) >= 0) wsHits.push({id:id, ws:w, archived:false});
+    if(isBogieQueryEarly){
+      // Bogie-only search: exact match on bogie field (case-insensitive)
+      if((w.b||'').toLowerCase() === bogieExactValue) wsHits.push({id:id, ws:w, archived:false});
+    } else {
+      var hay = (id+' '+(w.c||'')+' '+(w.b||'')+' '+(w.t||'')).toLowerCase();
+      if(hay.indexOf(query) >= 0) wsHits.push({id:id, ws:w, archived:false});
+    }
   });
   Object.keys(ARCHIVE).forEach(function(id){
     var w = ARCHIVE[id];
-    var hay = (id+' '+(w.c||'')+' '+(w.b||'')+' '+(w.t||'')).toLowerCase();
-    if(hay.indexOf(query) >= 0) archiveHits.push({id:id, ws:w, archived:true});
+    if(isBogieQueryEarly){
+      if((w.b||'').toLowerCase() === bogieExactValue) archiveHits.push({id:id, ws:w, archived:true});
+    } else {
+      var hay = (id+' '+(w.c||'')+' '+(w.b||'')+' '+(w.t||'')).toLowerCase();
+      if(hay.indexOf(query) >= 0) archiveHits.push({id:id, ws:w, archived:true});
+    }
   });
 
   // 2. Match pool components — by serial
@@ -8224,12 +8257,17 @@ function runGlobalSearch(query){
   var bucketNames = {r:'serviceable', n:'new', c:'condemned', w:'waiting'};
   var posLabels = {axle:'Axle', wheelA:'Wheel A', wheelB:'Wheel B', brakeA:'Brake A', brakeB:'Brake B', ctrbA:'CTRB A', ctrbB:'CTRB B'};
 
+  // Detect whether the query looks like a bogie number (e.g. "B1", "B2", "B-1", "b1")
+  // to give the section titles a more explicit "bogie" framing.
+  var isBogieQuery = /^b\s*-?\s*\d+$/i.test(query);
+  var wsLimit = isBogieQuery ? 50 : 8;   // show all matches when searching by bogie
+  var archLimit = isBogieQuery ? 50 : 5;
+
   if(wsHits.length){
-    h += '<div class="sr-section"><div class="sr-section-ttl">Active wheelsets · '+wsHits.length+'</div>';
-    wsHits.slice(0, 8).forEach(function(hit){
+    var wsTitle = isBogieQuery ? 'Active wheelsets in bogie "' + query.toUpperCase() + '"' : 'Active wheelsets';
+    h += '<div class="sr-section"><div class="sr-section-ttl">'+wsTitle+' · '+wsHits.length+'</div>';
+    wsHits.slice(0, wsLimit).forEach(function(hit){
       var w = hit.ws;
-      // For active wheelsets, the row itself is not clickable — clicks go to the
-      // two action buttons (Open the card, or History modal).
       h += '<div class="sr-row" style="cursor:default">';
       h += '<div><div class="sr-id">'+hit.id+'</div><div class="sr-meta">Coach '+w.c+' · Bogie '+w.b+' · at '+(M_LABEL[w.loc]||w.loc)+'</div></div>';
       h += '<div style="display:flex;gap:6px;align-items:center">';
@@ -8240,11 +8278,12 @@ function runGlobalSearch(query){
     h += '</div>';
   }
   if(archiveHits.length){
-    h += '<div class="sr-section"><div class="sr-section-ttl">Dispatched (archived) · '+archiveHits.length+'</div>';
-    archiveHits.slice(0, 5).forEach(function(hit){
+    var archTitle = isBogieQuery ? 'Dispatched wheelsets from bogie "' + query.toUpperCase() + '"' : 'Dispatched (archived)';
+    h += '<div class="sr-section"><div class="sr-section-ttl">'+archTitle+' · '+archiveHits.length+'</div>';
+    archiveHits.slice(0, archLimit).forEach(function(hit){
       var w = hit.ws;
       h += '<div class="sr-row" data-srtype="ws" data-srid="'+hit.id+'" data-srarch="1">';
-      h += '<div><div class="sr-id">'+hit.id+'</div><div class="sr-meta">Coach '+w.c+' · dwell '+(w.totalDwellMs?Math.round(w.totalDwellMs/3600000)+'h':'?')+'</div></div>';
+      h += '<div><div class="sr-id">'+hit.id+'</div><div class="sr-meta">Coach '+w.c+' · Bogie '+(w.b||'-')+(w.dispatchDest?' · '+w.dispatchDest:'')+' · dwell '+(w.totalDwellMs?Math.round(w.totalDwellMs/3600000)+'h':'?')+'</div></div>';
       h += '<div class="sr-meta">Dispatched</div></div>';
     });
     h += '</div>';
@@ -8869,7 +8908,7 @@ function openWheelsetHistory(wsId){
   h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:12px">';
   h += '<div>';
   h += '<div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;font-family:Arial,sans-serif">Indian Railways · Northern Railway · Sonipat</div>';
-  h += '<h1>Wheelset Lifecycle Report</h1>';
+  h += '<h1>Wheelset Shop Report</h1>';
   h += '<div style="font-size:13px;color:#334155;font-weight:600;margin-bottom:2px">Wheelset <span style="font-family:\'Courier New\',monospace">'+escapeHtml(wsId)+'</span>';
   if(isDisassembled) h += ' <span style="background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:2px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;margin-left:6px">Disassembled</span>';
   else if(isArchived) h += ' <span style="background:#dbeafe;color:#1e40af;padding:2px 7px;border-radius:2px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;margin-left:6px">Dispatched</span>';
