@@ -8302,28 +8302,53 @@ function runGlobalSearch(query){
   var latheHits = [];
   var archiveHits = [];
 
-  // Detect bogie query for exact matching (e.g. "B1" matches only B1, not B10)
-  var bogieQueryMatch = query.match(/^b\s*-?\s*(\d+)$/i);
-  var isBogieQueryEarly = !!bogieQueryMatch;
-  var bogieExactValue = isBogieQueryEarly ? ('B' + bogieQueryMatch[1]).toLowerCase() : null;
+  // Detect bogie query — check if the query EXACTLY matches any known bogie value.
+  // This works for any bogie format: "B1", "246355", "b-1", "BG2", etc.
+  // Priority: check both arrivalBogie and b field on active + archived wheelsets.
+  var queryLower = query.toLowerCase();
+  var isBogieQueryEarly = false;
+  var bogieExactValue = null;
+  // Build a set of known bogie values (once, cheap enough)
+  var knownBogies = {};
+  Object.keys(WS).forEach(function(id){
+    var bA = WS[id].arrivalBogie; var bB = WS[id].b;
+    if(bA) knownBogies[(''+bA).toLowerCase()] = true;
+    if(bB) knownBogies[(''+bB).toLowerCase()] = true;
+  });
+  Object.keys(ARCHIVE).forEach(function(id){
+    var bA = ARCHIVE[id].arrivalBogie; var bB = ARCHIVE[id].b; var bD = ARCHIVE[id].dispatchBogie;
+    if(bA) knownBogies[(''+bA).toLowerCase()] = true;
+    if(bB) knownBogies[(''+bB).toLowerCase()] = true;
+    if(bD) knownBogies[(''+bD).toLowerCase()] = true;
+  });
+  if(knownBogies[queryLower]){
+    isBogieQueryEarly = true;
+    bogieExactValue = queryLower;
+  }
 
   // 1. Match wheelsets — id, coach, bogie. Active and archived.
   Object.keys(WS).forEach(function(id){
     var w = WS[id];
     if(isBogieQueryEarly){
-      // Bogie-only search: exact match on bogie field (case-insensitive)
-      if((w.b||'').toLowerCase() === bogieExactValue) wsHits.push({id:id, ws:w, archived:false});
+      // Bogie-exact search: match on arrivalBogie OR b (both represent the arrival bogie)
+      var b1 = (''+(w.arrivalBogie||'')).toLowerCase();
+      var b2 = (''+(w.b||'')).toLowerCase();
+      if(b1 === bogieExactValue || b2 === bogieExactValue) wsHits.push({id:id, ws:w, archived:false});
     } else {
-      var hay = (id+' '+(w.c||'')+' '+(w.b||'')+' '+(w.t||'')).toLowerCase();
+      var hay = (id+' '+(w.c||'')+' '+(w.b||'')+' '+(w.arrivalBogie||'')+' '+(w.t||'')).toLowerCase();
       if(hay.indexOf(query) >= 0) wsHits.push({id:id, ws:w, archived:false});
     }
   });
   Object.keys(ARCHIVE).forEach(function(id){
     var w = ARCHIVE[id];
     if(isBogieQueryEarly){
-      if((w.b||'').toLowerCase() === bogieExactValue) archiveHits.push({id:id, ws:w, archived:true});
+      // For archived wheelsets check arrivalBogie, b, AND dispatchBogie
+      var b1 = (''+(w.arrivalBogie||'')).toLowerCase();
+      var b2 = (''+(w.b||'')).toLowerCase();
+      var b3 = (''+(w.dispatchBogie||'')).toLowerCase();
+      if(b1 === bogieExactValue || b2 === bogieExactValue || b3 === bogieExactValue) archiveHits.push({id:id, ws:w, archived:true});
     } else {
-      var hay = (id+' '+(w.c||'')+' '+(w.b||'')+' '+(w.t||'')).toLowerCase();
+      var hay = (id+' '+(w.c||'')+' '+(w.b||'')+' '+(w.arrivalBogie||'')+' '+(w.dispatchBogie||'')+' '+(w.t||'')).toLowerCase();
       if(hay.indexOf(query) >= 0) archiveHits.push({id:id, ws:w, archived:true});
     }
   });
@@ -8388,19 +8413,19 @@ function runGlobalSearch(query){
   var bucketNames = {r:'serviceable', n:'new', c:'condemned', w:'waiting'};
   var posLabels = {axle:'Axle', wheelA:'Wheel A', wheelB:'Wheel B', brakeA:'Brake A', brakeB:'Brake B', ctrbA:'CTRB A', ctrbB:'CTRB B'};
 
-  // Detect whether the query looks like a bogie number (e.g. "B1", "B2", "B-1", "b1")
-  // to give the section titles a more explicit "bogie" framing.
-  var isBogieQuery = /^b\s*-?\s*\d+$/i.test(query);
+  // Detect whether this is a bogie query (using the same isBogieQueryEarly flag
+  // set earlier — matches any known bogie value exactly)
+  var isBogieQuery = isBogieQueryEarly;
   var wsLimit = isBogieQuery ? 50 : 8;   // show all matches when searching by bogie
   var archLimit = isBogieQuery ? 50 : 5;
 
   if(wsHits.length){
-    var wsTitle = isBogieQuery ? 'Active wheelsets in bogie "' + query.toUpperCase() + '"' : 'Active wheelsets';
+    var wsTitle = isBogieQuery ? 'Wheelsets currently in bogie ' + query : 'Active wheelsets';
     h += '<div class="sr-section"><div class="sr-section-ttl">'+wsTitle+' · '+wsHits.length+'</div>';
     wsHits.slice(0, wsLimit).forEach(function(hit){
       var w = hit.ws;
       h += '<div class="sr-row" style="cursor:default">';
-      h += '<div><div class="sr-id">'+hit.id+'</div><div class="sr-meta">Coach '+w.c+' · Bogie '+w.b+' · at '+(M_LABEL[w.loc]||w.loc)+'</div></div>';
+      h += '<div><div class="sr-id">'+hit.id+'</div><div class="sr-meta">Coach '+w.c+' · Bogie '+(w.arrivalBogie || w.b || '-')+' · at '+(M_LABEL[w.loc]||w.loc)+'</div></div>';
       h += '<div style="display:flex;gap:6px;align-items:center">';
       h += '<button class="sr-act-btn" data-sract="openWs" data-srid="'+hit.id+'" style="background:#2563eb;color:#fff;border:0;padding:5px 10px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer">Open</button>';
       h += '<button class="sr-act-btn" data-sract="historyWs" data-srid="'+hit.id+'" style="background:transparent;color:#475569;border:1px solid #cbd5e1;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer">History</button>';
@@ -8409,13 +8434,15 @@ function runGlobalSearch(query){
     h += '</div>';
   }
   if(archiveHits.length){
-    var archTitle = isBogieQuery ? 'Dispatched wheelsets from bogie "' + query.toUpperCase() + '"' : 'Dispatched (archived)';
+    var archTitle = isBogieQuery ? 'Wheelsets dispatched from bogie ' + query : 'Dispatched (archived)';
     h += '<div class="sr-section"><div class="sr-section-ttl">'+archTitle+' · '+archiveHits.length+'</div>';
     archiveHits.slice(0, archLimit).forEach(function(hit){
       var w = hit.ws;
-      h += '<div class="sr-row" data-srtype="ws" data-srid="'+hit.id+'" data-srarch="1">';
-      h += '<div><div class="sr-id">'+hit.id+'</div><div class="sr-meta">Coach '+w.c+' · Bogie '+(w.b||'-')+(w.dispatchDest?' · '+w.dispatchDest:'')+' · dwell '+(w.totalDwellMs?Math.round(w.totalDwellMs/3600000)+'h':'?')+'</div></div>';
-      h += '<div class="sr-meta">Dispatched</div></div>';
+      // Row itself is clickable (opens history) since dispatched wheelsets aren't on the dashboard
+      h += '<div class="sr-row" data-srtype="ws" data-srid="'+hit.id+'" data-srarch="1" style="cursor:pointer">';
+      h += '<div><div class="sr-id">'+hit.id+'</div><div class="sr-meta">Coach '+(w.c||'-')+' · Arrival bogie '+(w.arrivalBogie || w.b || '-')+(w.dispatchBogie && w.dispatchBogie !== (w.arrivalBogie || w.b) ? ' · Dispatch bogie '+w.dispatchBogie : '')+(w.dispatchDest?' · '+w.dispatchDest:'')+(w.totalDwellMs?' · dwell '+Math.round(w.totalDwellMs/3600000)+'h':'')+'</div></div>';
+      h += '<button class="sr-act-btn" data-sract="historyWs" data-srid="'+hit.id+'" data-srarch="1" style="background:#2563eb;color:#fff;border:0;padding:5px 10px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer">View report</button>';
+      h += '</div>';
     });
     h += '</div>';
   }
@@ -8543,7 +8570,7 @@ function openComponentHistory(serial){
       h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px">';
       h += '<div><b style="font-size:13px">'+escapeHtml(st.where)+'</b>';
       if(st.isCurrent) h += ' <span style="background:#0f172a;color:#fff;font-size:9px;padding:1px 6px;border-radius:3px;text-transform:uppercase;letter-spacing:.04em;margin-left:4px">current</span>';
-      h += '<div style="font-size:10px;color:#64748b;margin-top:2px">Arrived '+escapeHtml(st.arrivedAt||'?')+(st.departedAt?' · departed '+escapeHtml(st.departedAt):'')+' · dwell '+dwellStr+'</div></div>';
+      h += '<div style="font-size:10px;color:#64748b;margin-top:2px">Arrived '+escapeHtml(st.arrivedAt||'?')+(st.departedAt?' · departed '+escapeHtml(st.departedAt):'')+(dwellStr && dwellStr !== '?' ? ' · dwell '+dwellStr : '')+'</div></div>';
       h += '</div>';
       // Events at this location
       if(st.events && st.events.length){
@@ -9172,7 +9199,7 @@ function openWheelsetHistory(wsId){
       // Stage header line
       h += '<div class="wh-stage-hd">';
       h += '<div class="wh-stage-name"><span style="color:#64748b;font-size:11px;margin-right:6px">Stage '+(idx+1)+'</span>'+escapeHtml(st.stageName)+(st.isCurrent?' <span style="background:#eab308;color:#fff;font-size:9px;padding:1px 6px;border-radius:2px;text-transform:uppercase;letter-spacing:.04em;margin-left:4px">Current</span>':'')+'</div>';
-      h += '<div class="wh-stage-time">'+escapeHtml(st.arrivedAt||'?')+(st.departedAt?' → '+escapeHtml(st.departedAt):'')+' · dwell '+dwellStr+'</div>';
+      h += '<div class="wh-stage-time">'+escapeHtml(st.arrivedAt||'?')+(st.departedAt?' → '+escapeHtml(st.departedAt):'')+(dwellStr && dwellStr !== '?' ? ' · dwell '+dwellStr : '')+'</div>';
       h += '</div>';
       // Stage purpose (one-liner)
       var desc = stageDescriptions[st.stageName];
