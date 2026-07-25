@@ -8435,44 +8435,82 @@ function runGlobalSearch(query){
       if(dispB === bogieExactValue) dispatchedTo.push(hit);
     });
 
-    // Section A: Arrived FROM this bogie
+    // Section A: Arrived FROM this bogie — grouped by arrival date (each group = one shop visit)
     if(arrivedFrom.length){
-      h += '<div class="sr-section"><div class="sr-section-ttl">Arrived from bogie ' + query + ' · ' + arrivedFrom.length + '</div>';
-      arrivedFrom.slice(0, wsLimit).forEach(function(hit){
+      // Group by arrival date (yyyy-mm-dd)
+      var byDate = {};
+      arrivedFrom.forEach(function(hit){
         var w = hit.ws;
-        var statusBadge = hit.archived
-          ? '<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:2px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;font-weight:600">Dispatched</span>'
-          : '<span style="background:#dcfce7;color:#166534;padding:1px 6px;border-radius:2px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;font-weight:600">Active · ' + escapeHtml(M_LABEL[w.loc]||w.loc||'') + '</span>';
-        var extras = 'Coach ' + (w.c || '-');
-        if(hit.archived){
-          if(w.dispatchDest) extras += ' · sent to ' + w.dispatchDest;
-          if(w.dispatchBogie && w.dispatchBogie !== (w.arrivalBogie || w.b)) extras += ' · dispatch bogie ' + w.dispatchBogie;
-          if(w.totalDwellMs) extras += ' · dwell ' + Math.round(w.totalDwellMs/3600000) + 'h';
-        }
-        h += '<div class="sr-row" style="cursor:pointer" data-srtype="ws" data-srid="' + hit.id + '"' + (hit.archived ? ' data-srarch="1"' : '') + '>';
-        h += '<div><div class="sr-id">' + hit.id + '</div>';
-        h += '<div class="sr-meta">' + escapeHtml(extras) + '</div></div>';
-        h += '<div style="display:flex;gap:6px;align-items:center">';
-        h += statusBadge;
-        h += '<button class="sr-act-btn" data-sract="historyWs" data-srid="' + hit.id + '"' + (hit.archived ? ' data-srarch="1"' : '') + ' style="background:#2563eb;color:#fff;border:0;padding:5px 10px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer">View report</button>';
-        h += '</div></div>';
+        var dateKey = w.arTs ? new Date(w.arTs).toISOString().substring(0,10) : (w.ar || 'unknown');
+        if(!byDate[dateKey]) byDate[dateKey] = {ts: w.arTs || 0, hits: []};
+        byDate[dateKey].hits.push(hit);
+      });
+      // Sort dates most-recent first
+      var dateKeys = Object.keys(byDate).sort(function(a,b){ return byDate[b].ts - byDate[a].ts; });
+      var visitCount = dateKeys.length;
+      var visitNote = visitCount > 1 ? ' · ' + visitCount + ' separate shop visits' : '';
+      h += '<div class="sr-section"><div class="sr-section-ttl">Arrived from bogie ' + query + ' · ' + arrivedFrom.length + ' wheelset' + (arrivedFrom.length===1?'':'s') + visitNote + '</div>';
+      dateKeys.forEach(function(dateKey, visitIdx){
+        var group = byDate[dateKey];
+        var displayDate = dateKey;
+        // Prefer human-readable date from ws.ar if available
+        if(group.hits[0] && group.hits[0].ws.ar) displayDate = group.hits[0].ws.ar;
+        // Sub-header for each visit
+        var visitLabel = visitCount > 1 ? 'Visit ' + (visitIdx+1) + ' · Arrived ' + displayDate : 'Arrived ' + displayDate;
+        h += '<div style="padding:8px 12px 4px;background:#f8fafc;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#475569;font-weight:700;border-top:1px solid #e2e8f0">' + escapeHtml(visitLabel) + ' · ' + group.hits.length + ' wheelset' + (group.hits.length===1?'':'s') + (group.hits.length !== 2 ? ' <span style="text-transform:none;letter-spacing:0;color:#b45309;font-weight:600;font-style:italic">(expected 2)</span>' : '') + '</div>';
+        group.hits.forEach(function(hit){
+          var w = hit.ws;
+          var statusBadge = hit.archived
+            ? '<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:2px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;font-weight:600">Dispatched</span>'
+            : '<span style="background:#dcfce7;color:#166534;padding:1px 6px;border-radius:2px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;font-weight:600">Active · ' + escapeHtml(M_LABEL[w.loc]||w.loc||'') + '</span>';
+          var extras = 'Coach ' + (w.c || '-');
+          if(hit.archived){
+            if(w.dispatchDest) extras += ' · sent to ' + w.dispatchDest;
+            if(w.dispatchBogie && w.dispatchBogie !== (w.arrivalBogie || w.b)) extras += ' · dispatch bogie ' + w.dispatchBogie;
+            if(w.totalDwellMs) extras += ' · dwell ' + Math.round(w.totalDwellMs/3600000) + 'h';
+          }
+          h += '<div class="sr-row" style="cursor:pointer" data-srtype="ws" data-srid="' + hit.id + '"' + (hit.archived ? ' data-srarch="1"' : '') + '>';
+          h += '<div><div class="sr-id">' + hit.id + '</div>';
+          h += '<div class="sr-meta">' + escapeHtml(extras) + '</div></div>';
+          h += '<div style="display:flex;gap:6px;align-items:center">';
+          h += statusBadge;
+          h += '<button class="sr-act-btn" data-sract="historyWs" data-srid="' + hit.id + '"' + (hit.archived ? ' data-srarch="1"' : '') + ' style="background:#2563eb;color:#fff;border:0;padding:5px 10px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer">View report</button>';
+          h += '</div></div>';
+        });
       });
       h += '</div>';
     }
-    // Section B: Dispatched TO this bogie
+    // Section B: Dispatched TO this bogie — grouped by dispatch date
     if(dispatchedTo.length){
-      h += '<div class="sr-section"><div class="sr-section-ttl">Dispatched to bogie ' + query + ' · ' + dispatchedTo.length + '</div>';
-      dispatchedTo.slice(0, archLimit).forEach(function(hit){
+      var byDispDate = {};
+      dispatchedTo.forEach(function(hit){
         var w = hit.ws;
-        var extras = 'Coach ' + (w.c || '-');
-        if(w.dispatchDest) extras += ' · ' + w.dispatchDest;
-        if(w.arrivalBogie && w.arrivalBogie !== w.dispatchBogie) extras += ' · arrived from bogie ' + w.arrivalBogie;
-        if(w.totalDwellMs) extras += ' · dwell ' + Math.round(w.totalDwellMs/3600000) + 'h';
-        h += '<div class="sr-row" style="cursor:pointer" data-srtype="ws" data-srid="' + hit.id + '" data-srarch="1">';
-        h += '<div><div class="sr-id">' + hit.id + '</div>';
-        h += '<div class="sr-meta">' + escapeHtml(extras) + '</div></div>';
-        h += '<button class="sr-act-btn" data-sract="historyWs" data-srid="' + hit.id + '" data-srarch="1" style="background:#2563eb;color:#fff;border:0;padding:5px 10px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer">View report</button>';
-        h += '</div>';
+        var dateKey = w.dispatchedAt ? new Date(w.dispatchedAt).toISOString().substring(0,10) : (w.dispatchedAtStr || 'unknown');
+        if(!byDispDate[dateKey]) byDispDate[dateKey] = {ts: w.dispatchedAt || 0, hits: []};
+        byDispDate[dateKey].hits.push(hit);
+      });
+      var dispDateKeys = Object.keys(byDispDate).sort(function(a,b){ return byDispDate[b].ts - byDispDate[a].ts; });
+      var dispVisitCount = dispDateKeys.length;
+      var dispVisitNote = dispVisitCount > 1 ? ' · ' + dispVisitCount + ' separate dispatches' : '';
+      h += '<div class="sr-section"><div class="sr-section-ttl">Dispatched to bogie ' + query + ' · ' + dispatchedTo.length + ' wheelset' + (dispatchedTo.length===1?'':'s') + dispVisitNote + '</div>';
+      dispDateKeys.forEach(function(dateKey, dIdx){
+        var group = byDispDate[dateKey];
+        var displayDate = dateKey;
+        if(group.hits[0] && group.hits[0].ws.dispatchedAtStr) displayDate = group.hits[0].ws.dispatchedAtStr;
+        var label = dispVisitCount > 1 ? 'Dispatch ' + (dIdx+1) + ' · ' + displayDate : 'Dispatched ' + displayDate;
+        h += '<div style="padding:8px 12px 4px;background:#f8fafc;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#475569;font-weight:700;border-top:1px solid #e2e8f0">' + escapeHtml(label) + ' · ' + group.hits.length + ' wheelset' + (group.hits.length===1?'':'s') + (group.hits.length !== 2 ? ' <span style="text-transform:none;letter-spacing:0;color:#b45309;font-weight:600;font-style:italic">(expected 2)</span>' : '') + '</div>';
+        group.hits.forEach(function(hit){
+          var w = hit.ws;
+          var extras = 'Coach ' + (w.c || '-');
+          if(w.dispatchDest) extras += ' · ' + w.dispatchDest;
+          if(w.arrivalBogie && w.arrivalBogie !== w.dispatchBogie) extras += ' · arrived from bogie ' + w.arrivalBogie;
+          if(w.totalDwellMs) extras += ' · dwell ' + Math.round(w.totalDwellMs/3600000) + 'h';
+          h += '<div class="sr-row" style="cursor:pointer" data-srtype="ws" data-srid="' + hit.id + '" data-srarch="1">';
+          h += '<div><div class="sr-id">' + hit.id + '</div>';
+          h += '<div class="sr-meta">' + escapeHtml(extras) + '</div></div>';
+          h += '<button class="sr-act-btn" data-sract="historyWs" data-srid="' + hit.id + '" data-srarch="1" style="background:#2563eb;color:#fff;border:0;padding:5px 10px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer">View report</button>';
+          h += '</div>';
+        });
       });
       h += '</div>';
     }
