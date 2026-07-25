@@ -9027,18 +9027,21 @@ function openWheelsetHistory(wsId){
         journalB: jB ? jB[1] : null, shoulderB: sB ? sB[1] : null };
     } else if(/Insp-?\s*3/i.test(m)){
       var checks = {};
+      // The Insp-3 event message uses compact abbreviations without colons:
+      //   "LP A 0.08, LP B 0.12 · WD A 907, WD B 907 · Torque OK, Paint OK, UST OK, ECA OK"
+      // Also handle older formats like "lateral play A: 0.08" (with colons).
       var pairs = [
-        {k:'lateralA', re:/lat(?:eral)?\s*(?:play)?\s*A[^:]*:\s*([0-9.]+)/i},
-        {k:'lateralB', re:/lat(?:eral)?\s*(?:play)?\s*B[^:]*:\s*([0-9.]+)/i},
-        {k:'wheelDiaA', re:/wheel\s*dia\s*A[^:]*:\s*([0-9.]+)/i},
-        {k:'wheelDiaB', re:/wheel\s*dia\s*B[^:]*:\s*([0-9.]+)/i},
-        {k:'torque', re:/torque[^:]*:\s*(OK|NOT\s*OK|pass|fail)/i},
-        {k:'paint', re:/paint[^:]*:\s*(OK|NOT\s*OK|pass|fail)/i},
-        {k:'ust', re:/UST[^:]*:\s*(OK|NOT\s*OK|pass|fail)/i},
-        {k:'eca', re:/ECA[^:]*:\s*(OK|NOT\s*OK|pass|fail)/i}
+        {k:'lateralA', re:/(?:LP|lat(?:eral)?\s*(?:play)?)\s*A\s*[:=]?\s*([0-9.]+)/i},
+        {k:'lateralB', re:/(?:LP|lat(?:eral)?\s*(?:play)?)\s*B\s*[:=]?\s*([0-9.]+)/i},
+        {k:'wheelDiaA', re:/(?:WD|wheel\s*dia(?:meter)?)\s*A\s*[:=]?\s*([0-9.]+)/i},
+        {k:'wheelDiaB', re:/(?:WD|wheel\s*dia(?:meter)?)\s*B\s*[:=]?\s*([0-9.]+)/i},
+        {k:'torque', re:/torque\s*[:=]?\s*(OK|NOT\s*OK|pass|fail)/i},
+        {k:'paint', re:/paint\s*[:=]?\s*(OK|NOT\s*OK|pass|fail)/i},
+        {k:'ust', re:/UST\s*[:=]?\s*(OK|NOT\s*OK|pass|fail)/i},
+        {k:'eca', re:/ECA\s*[:=]?\s*(OK|NOT\s*OK|pass|fail)/i}
       ];
       pairs.forEach(function(p){ var mm = m.match(p.re); if(mm) checks[p.k] = mm[1]; });
-      insp3 = { ts: ev.ts, tsStr: ev.timeStr || '', checks: checks };
+      insp3 = { ts: ev.ts, tsStr: ev.timeStr || '', checks: checks, rawMsg: m };
     }
   });
 
@@ -9108,10 +9111,10 @@ function openWheelsetHistory(wsId){
     } else if(pos === 'brakeA' || pos === 'brakeB'){
       if(c.thickness != null) parts.push(c.thickness+' mm (thickness)');
     } else if(pos === 'ctrbA' || pos === 'ctrbB'){
-      // CTRBs: mounting date, lateral play
+      // CTRBs: mounting date, lateral play (LP recorded either at arrival OR at Insp-3)
       if(c.mountingDate) parts.push(c.mountingDate+' (mounted)');
       else if(c.mfgDate) parts.push(c.mfgDate+' (mfg)');
-      if(c.lateralPlay != null) parts.push(c.lateralPlay+' mm lateral play');
+      if(c.lateralPlay != null) parts.push(c.lateralPlay+' mm lateral play (recorded)');
     }
     // Common extras (all component types):
     // Make / manufacturer — stored in either `f` field or `bearingMake` (CTRBs)
@@ -9194,14 +9197,26 @@ function openWheelsetHistory(wsId){
         if(insp2.outcome) actions.push({label:'Outcome', value:insp2.outcome});
       } else if(st.stageName === 'Inspection-3' && insp3){
         var ck = insp3.checks || {};
-        if(ck.lateralA || ck.lateralB) actions.push({label:'Bearing lateral play', value:'A: '+(ck.lateralA?ck.lateralA+' mm':'—')+' · B: '+(ck.lateralB?ck.lateralB+' mm':'—')});
-        if(ck.wheelDiaA || ck.wheelDiaB) actions.push({label:'Wheel diameter', value:'A: '+(ck.wheelDiaA?ck.wheelDiaA+' mm':'—')+' · B: '+(ck.wheelDiaB?ck.wheelDiaB+' mm':'—')});
+        var hasAny = false;
+        if(ck.lateralA || ck.lateralB){
+          actions.push({label:'Bearing lateral play (fitted CTRBs)', value:'A: '+(ck.lateralA?ck.lateralA+' mm':'—')+' · B: '+(ck.lateralB?ck.lateralB+' mm':'—')});
+          hasAny = true;
+        }
+        if(ck.wheelDiaA || ck.wheelDiaB){
+          actions.push({label:'Wheel diameter after turning', value:'A: '+(ck.wheelDiaA?ck.wheelDiaA+' mm':'—')+' · B: '+(ck.wheelDiaB?ck.wheelDiaB+' mm':'—')});
+          hasAny = true;
+        }
         var otherChecks = [];
         if(ck.torque) otherChecks.push('Torque: '+ck.torque);
         if(ck.paint) otherChecks.push('Paint: '+ck.paint);
         if(ck.ust) otherChecks.push('UST: '+ck.ust);
         if(ck.eca) otherChecks.push('ECA: '+ck.eca);
-        if(otherChecks.length) actions.push({label:'Other checks', value:otherChecks.join(' · ')});
+        if(otherChecks.length){ actions.push({label:'Quality checks', value:otherChecks.join(' · ')}); hasAny = true; }
+        // Fallback: if the regex didn't match anything but there IS an Insp-3 event message,
+        // show the raw message so nothing is lost.
+        if(!hasAny && insp3.rawMsg){
+          actions.push({label:'Inspection-3 result', value: insp3.rawMsg.replace(/^Insp-?\s*3(?:\s*complete)?\s*[:·—-]*\s*/i,'')});
+        }
       }
 
       // Actions from events at this stage — component swaps, pool moves, edits, etc.
