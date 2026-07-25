@@ -8419,32 +8419,92 @@ function runGlobalSearch(query){
   var wsLimit = isBogieQuery ? 50 : 8;   // show all matches when searching by bogie
   var archLimit = isBogieQuery ? 50 : 5;
 
-  if(wsHits.length){
-    var wsTitle = isBogieQuery ? 'Wheelsets currently in bogie ' + query : 'Active wheelsets';
-    h += '<div class="sr-section"><div class="sr-section-ttl">'+wsTitle+' · '+wsHits.length+'</div>';
-    wsHits.slice(0, wsLimit).forEach(function(hit){
+  if(isBogieQuery){
+    // BOGIE QUERY: don't split by active/archived — split by the FIELD the bogie appears in.
+    //   Section A: "Arrived from bogie X"  — every wheelset whose arrivalBogie === X (active or archived)
+    //   Section B: "Dispatched to bogie X" — every archived wheelset whose dispatchBogie === X
+    // A single wheelset can appear in both sections if it arrived from and returned to the same bogie.
+    var arrivedFrom = [];
+    var dispatchedTo = [];
+    var allHits = wsHits.concat(archiveHits);
+    allHits.forEach(function(hit){
       var w = hit.ws;
-      h += '<div class="sr-row" style="cursor:default">';
-      h += '<div><div class="sr-id">'+hit.id+'</div><div class="sr-meta">Coach '+w.c+' · Bogie '+(w.arrivalBogie || w.b || '-')+' · at '+(M_LABEL[w.loc]||w.loc)+'</div></div>';
-      h += '<div style="display:flex;gap:6px;align-items:center">';
-      h += '<button class="sr-act-btn" data-sract="openWs" data-srid="'+hit.id+'" style="background:#2563eb;color:#fff;border:0;padding:5px 10px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer">Open</button>';
-      h += '<button class="sr-act-btn" data-sract="historyWs" data-srid="'+hit.id+'" style="background:transparent;color:#475569;border:1px solid #cbd5e1;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer">History</button>';
-      h += '</div></div>';
+      var arrB = ('' + (w.arrivalBogie || w.b || '')).toLowerCase();
+      var dispB = ('' + (w.dispatchBogie || '')).toLowerCase();
+      if(arrB === bogieExactValue) arrivedFrom.push(hit);
+      if(dispB === bogieExactValue) dispatchedTo.push(hit);
     });
-    h += '</div>';
-  }
-  if(archiveHits.length){
-    var archTitle = isBogieQuery ? 'Wheelsets dispatched from bogie ' + query : 'Dispatched (archived)';
-    h += '<div class="sr-section"><div class="sr-section-ttl">'+archTitle+' · '+archiveHits.length+'</div>';
-    archiveHits.slice(0, archLimit).forEach(function(hit){
-      var w = hit.ws;
-      // Row itself is clickable (opens history) since dispatched wheelsets aren't on the dashboard
-      h += '<div class="sr-row" data-srtype="ws" data-srid="'+hit.id+'" data-srarch="1" style="cursor:pointer">';
-      h += '<div><div class="sr-id">'+hit.id+'</div><div class="sr-meta">Coach '+(w.c||'-')+' · Arrival bogie '+(w.arrivalBogie || w.b || '-')+(w.dispatchBogie && w.dispatchBogie !== (w.arrivalBogie || w.b) ? ' · Dispatch bogie '+w.dispatchBogie : '')+(w.dispatchDest?' · '+w.dispatchDest:'')+(w.totalDwellMs?' · dwell '+Math.round(w.totalDwellMs/3600000)+'h':'')+'</div></div>';
-      h += '<button class="sr-act-btn" data-sract="historyWs" data-srid="'+hit.id+'" data-srarch="1" style="background:#2563eb;color:#fff;border:0;padding:5px 10px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer">View report</button>';
+
+    // Section A: Arrived FROM this bogie
+    if(arrivedFrom.length){
+      h += '<div class="sr-section"><div class="sr-section-ttl">Arrived from bogie ' + query + ' · ' + arrivedFrom.length + '</div>';
+      arrivedFrom.slice(0, wsLimit).forEach(function(hit){
+        var w = hit.ws;
+        var statusBadge = hit.archived
+          ? '<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:2px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;font-weight:600">Dispatched</span>'
+          : '<span style="background:#dcfce7;color:#166534;padding:1px 6px;border-radius:2px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;font-weight:600">Active · ' + escapeHtml(M_LABEL[w.loc]||w.loc||'') + '</span>';
+        var extras = 'Coach ' + (w.c || '-');
+        if(hit.archived){
+          if(w.dispatchDest) extras += ' · sent to ' + w.dispatchDest;
+          if(w.dispatchBogie && w.dispatchBogie !== (w.arrivalBogie || w.b)) extras += ' · dispatch bogie ' + w.dispatchBogie;
+          if(w.totalDwellMs) extras += ' · dwell ' + Math.round(w.totalDwellMs/3600000) + 'h';
+        }
+        h += '<div class="sr-row" style="cursor:pointer" data-srtype="ws" data-srid="' + hit.id + '"' + (hit.archived ? ' data-srarch="1"' : '') + '>';
+        h += '<div><div class="sr-id">' + hit.id + '</div>';
+        h += '<div class="sr-meta">' + escapeHtml(extras) + '</div></div>';
+        h += '<div style="display:flex;gap:6px;align-items:center">';
+        h += statusBadge;
+        h += '<button class="sr-act-btn" data-sract="historyWs" data-srid="' + hit.id + '"' + (hit.archived ? ' data-srarch="1"' : '') + ' style="background:#2563eb;color:#fff;border:0;padding:5px 10px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer">View report</button>';
+        h += '</div></div>';
+      });
       h += '</div>';
-    });
-    h += '</div>';
+    }
+    // Section B: Dispatched TO this bogie
+    if(dispatchedTo.length){
+      h += '<div class="sr-section"><div class="sr-section-ttl">Dispatched to bogie ' + query + ' · ' + dispatchedTo.length + '</div>';
+      dispatchedTo.slice(0, archLimit).forEach(function(hit){
+        var w = hit.ws;
+        var extras = 'Coach ' + (w.c || '-');
+        if(w.dispatchDest) extras += ' · ' + w.dispatchDest;
+        if(w.arrivalBogie && w.arrivalBogie !== w.dispatchBogie) extras += ' · arrived from bogie ' + w.arrivalBogie;
+        if(w.totalDwellMs) extras += ' · dwell ' + Math.round(w.totalDwellMs/3600000) + 'h';
+        h += '<div class="sr-row" style="cursor:pointer" data-srtype="ws" data-srid="' + hit.id + '" data-srarch="1">';
+        h += '<div><div class="sr-id">' + hit.id + '</div>';
+        h += '<div class="sr-meta">' + escapeHtml(extras) + '</div></div>';
+        h += '<button class="sr-act-btn" data-sract="historyWs" data-srid="' + hit.id + '" data-srarch="1" style="background:#2563eb;color:#fff;border:0;padding:5px 10px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer">View report</button>';
+        h += '</div>';
+      });
+      h += '</div>';
+    }
+    if(!arrivedFrom.length && !dispatchedTo.length){
+      h += '<div class="sr-hint">No wheelsets found for bogie ' + escapeHtml(query) + '.</div>';
+    }
+  } else {
+    // NORMAL SEARCH: split by status as before
+    if(wsHits.length){
+      h += '<div class="sr-section"><div class="sr-section-ttl">Active wheelsets · '+wsHits.length+'</div>';
+      wsHits.slice(0, wsLimit).forEach(function(hit){
+        var w = hit.ws;
+        h += '<div class="sr-row" style="cursor:default">';
+        h += '<div><div class="sr-id">'+hit.id+'</div><div class="sr-meta">Coach '+w.c+' · Bogie '+(w.arrivalBogie || w.b || '-')+' · at '+(M_LABEL[w.loc]||w.loc)+'</div></div>';
+        h += '<div style="display:flex;gap:6px;align-items:center">';
+        h += '<button class="sr-act-btn" data-sract="openWs" data-srid="'+hit.id+'" style="background:#2563eb;color:#fff;border:0;padding:5px 10px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer">Open</button>';
+        h += '<button class="sr-act-btn" data-sract="historyWs" data-srid="'+hit.id+'" style="background:transparent;color:#475569;border:1px solid #cbd5e1;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer">History</button>';
+        h += '</div></div>';
+      });
+      h += '</div>';
+    }
+    if(archiveHits.length){
+      h += '<div class="sr-section"><div class="sr-section-ttl">Dispatched (archived) · '+archiveHits.length+'</div>';
+      archiveHits.slice(0, archLimit).forEach(function(hit){
+        var w = hit.ws;
+        h += '<div class="sr-row" data-srtype="ws" data-srid="'+hit.id+'" data-srarch="1" style="cursor:pointer">';
+        h += '<div><div class="sr-id">'+hit.id+'</div><div class="sr-meta">Coach '+(w.c||'-')+' · Arrival bogie '+(w.arrivalBogie || w.b || '-')+(w.dispatchBogie && w.dispatchBogie !== (w.arrivalBogie || w.b) ? ' · Dispatch bogie '+w.dispatchBogie : '')+(w.dispatchDest?' · '+w.dispatchDest:'')+(w.totalDwellMs?' · dwell '+Math.round(w.totalDwellMs/3600000)+'h':'')+'</div></div>';
+        h += '<button class="sr-act-btn" data-sract="historyWs" data-srid="'+hit.id+'" data-srarch="1" style="background:#2563eb;color:#fff;border:0;padding:5px 10px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer">View report</button>';
+        h += '</div>';
+      });
+      h += '</div>';
+    }
   }
   if(fittedHits.length){
     h += '<div class="sr-section"><div class="sr-section-ttl">Components fitted on wheelsets · '+fittedHits.length+'</div>';
