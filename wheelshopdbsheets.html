@@ -8942,6 +8942,23 @@ function openWheelsetHistory(wsId){
   var box = modal.querySelector('.modal-box');
   var posLabels = {axle:'Axle', wheelA:'Wheel disc A', wheelB:'Wheel disc B', brakeA:'Brake disc A', brakeB:'Brake disc B', ctrbA:'CTRB bearing A', ctrbB:'CTRB bearing B'};
 
+  // Safety net: run the retroactive arrival-snapshot backfill right now, in case
+  // this wheelset was loaded via cloud sync AFTER the migration pass, or if the
+  // arrival snapshot got out of sync for any other reason. The backfill is
+  // idempotent — it only replaces placeholder serials that still match the "from"
+  // side of an edit event, so calling it repeatedly is safe.
+  if(typeof window._backfillArrivalFromEdits === 'function'){
+    try {
+      var beforeAxle = ws.arrivalSnapshot && ws.arrivalSnapshot.axle && ws.arrivalSnapshot.axle.id;
+      window._backfillArrivalFromEdits(ws, wsId);
+      var afterAxle = ws.arrivalSnapshot && ws.arrivalSnapshot.axle && ws.arrivalSnapshot.axle.id;
+      // If the backfill actually corrected something, persist it to cloud so all users see it
+      if(beforeAxle !== afterAxle && typeof saveState === 'function'){
+        try { saveState(); } catch(e){}
+      }
+    } catch(e){ console.error('backfill in openHistory failed', e); }
+  }
+
   // Merge events from BOTH GLOBAL_LOG (which has real ts + msg fields) and the
   // per-wheelset ws.log (which uses t + m + is newest-first). Some wheelsets have
   // rich per-wheelset logs but no global entries. Dedup by tag+message.
@@ -9065,26 +9082,62 @@ function openWheelsetHistory(wsId){
   h += '<b>Inspection case</b><span>'+(ws.case?('Case '+ws.case+(ws.case===1?' · full overhaul':ws.case===2?' · wheel disc only':ws.case===3?' · CTRB only':ws.case===4?' · all serviceable':'')):'not yet inspected')+'</span>';
   h += '</div>';
 
+  // Helper: build a comprehensive "measurement + all extra details" string for a component.
+  // Includes every stored field that's meaningful: measurements, make, bearing make,
+  // lateral play, notes, remarks. Used in both arrival and current-components tables.
+  function buildComponentDetails(c, pos){
+    if(!c) return '—';
+    var parts = [];
+    // Position-specific measurements
+    if(pos === 'axle'){
+      // Prefer per-side values if present, else fall back to single-value fields
+      if(c.journalDiaA != null || c.journalDiaB != null || c.shoulderDiaA != null || c.shoulderDiaB != null){
+        var ax = [];
+        if(c.journalDiaA != null) ax.push('A journal ' + c.journalDiaA + ' mm');
+        if(c.journalDiaB != null) ax.push('B journal ' + c.journalDiaB + ' mm');
+        if(c.shoulderDiaA != null) ax.push('A shoulder ' + c.shoulderDiaA + ' mm');
+        if(c.shoulderDiaB != null) ax.push('B shoulder ' + c.shoulderDiaB + ' mm');
+        parts.push(ax.join(' · '));
+      } else if(c.journalDia != null){
+        var s = c.journalDia+' mm (journal)';
+        if(c.shoulderDia != null) s += ' · '+c.shoulderDia+' mm (shoulder)';
+        parts.push(s);
+      }
+    } else if(pos === 'wheelA' || pos === 'wheelB'){
+      if(c.dia != null) parts.push(c.dia+' mm (dia)');
+    } else if(pos === 'brakeA' || pos === 'brakeB'){
+      if(c.thickness != null) parts.push(c.thickness+' mm (thickness)');
+    } else if(pos === 'ctrbA' || pos === 'ctrbB'){
+      // CTRBs: mounting date, lateral play
+      if(c.mountingDate) parts.push(c.mountingDate+' (mounted)');
+      else if(c.mfgDate) parts.push(c.mfgDate+' (mfg)');
+      if(c.lateralPlay != null) parts.push(c.lateralPlay+' mm lateral play');
+    }
+    // Common extras (all component types):
+    // Make / manufacturer — stored in either `f` field or `bearingMake` (CTRBs)
+    var make = c.f || c.bearingMake || null;
+    if(make) parts.push('make: '+make);
+    // Free-text remarks (some wheelsets have these)
+    if(c.remarks && c.remarks !== c.n) parts.push('remarks: '+c.remarks);
+    // Notes — capture last so it's obvious what free-text is present
+    if(c.n) parts.push(c.n);
+    return parts.length ? parts.join(' · ') : '—';
+  }
+
   // 2. COMPONENTS AT ARRIVAL
   h += '<h2>2. Components at arrival</h2>';
   if(arrivalSnapshot && Object.keys(arrivalSnapshot).length){
     h += '<table class="wh-tbl">';
-    h += '<thead><tr><th style="width:20%">Position</th><th style="width:26%">Serial number</th><th>Initial measurement</th></tr></thead><tbody>';
+    h += '<thead><tr><th style="width:20%">Position</th><th style="width:26%">Serial number</th><th>Initial details</th></tr></thead><tbody>';
     ['axle','wheelA','wheelB','brakeA','brakeB','ctrbA','ctrbB'].forEach(function(pos){
       var c = arrivalSnapshot[pos];
       if(!c){
         h += '<tr><td><b>'+posLabels[pos]+'</b></td><td colspan="2" style="color:#94a3b8;font-style:italic">not recorded</td></tr>';
         return;
       }
-      var meas = '';
-      if(c.journalDia != null){ meas = c.journalDia+' mm (journal)'; if(c.shoulderDia != null) meas += ' · '+c.shoulderDia+' mm (shoulder)'; }
-      else if(c.dia != null) meas = c.dia+' mm (dia)';
-      else if(c.thickness != null) meas = c.thickness+' mm (thickness)';
-      else if(c.mountingDate) meas = c.mountingDate+' (mounted)';
-      else if(c.mfgDate) meas = c.mfgDate+' (mfg)';
       h += '<tr><td><b>'+posLabels[pos]+'</b></td>';
       h += '<td style="font-family:\'Courier New\',monospace;font-weight:600">'+escapeHtml(c.id||'—')+'</td>';
-      h += '<td>'+escapeHtml(meas || '—')+'</td></tr>';
+      h += '<td>'+escapeHtml(buildComponentDetails(c, pos))+'</td></tr>';
     });
     h += '</tbody></table>';
   } else {
@@ -9162,12 +9215,36 @@ function openWheelsetHistory(wsId){
         // Skip 'ins' events already surfaced above; skip 'adv' (they define stage boundaries)
         if(!label) return;
         // Skip edit events at pre-swap stages — they only corrected initial serials
-        var PRE_SWAP_STAGES = {'Entry':1,'Cleaning':1,'Inspection-1':1,'CTRB Dismount':1,'Inspection-2':1};
-        if(ev.tag === 'edit' && PRE_SWAP_STAGES[st.stageName]){
+        var PRE_SWAP_STAGES_LOCAL = {'Entry':1,'Cleaning':1,'Inspection-1':1,'CTRB Dismount':1,'Inspection-2':1};
+        if(ev.tag === 'edit' && PRE_SWAP_STAGES_LOCAL[st.stageName]){
           actions.push({label:'Initial serials entered', value:'Operator entered actual serials visible after cleaning', time: ev.timeStr});
           return;
         }
-        actions.push({label: label, value: ev.msg, time: ev.timeStr});
+        // Enrich fit events with current-component details (make, lateral play, etc.)
+        // by finding component IDs mentioned in the message and looking up ws.f
+        var enrichedValue = ev.msg;
+        if(ev.tag === 'fit' && ws.f){
+          var enrichParts = [];
+          ['axle','wheelA','wheelB','brakeA','brakeB','ctrbA','ctrbB'].forEach(function(p){
+            var c = ws.f[p];
+            if(!c || !c.id) return;
+            // If the fit message mentions this component's ID, gather its extras
+            if((ev.msg||'').indexOf(c.id) >= 0){
+              var extras = [];
+              var make = c.f || c.bearingMake;
+              if(make) extras.push('make ' + make);
+              if(c.lateralPlay != null) extras.push(c.lateralPlay + ' mm lat play');
+              if(c.n && (ev.msg||'').indexOf(c.n) < 0) extras.push(c.n);
+              if(extras.length){
+                enrichParts.push(c.id + ': ' + extras.join(' · '));
+              }
+            }
+          });
+          if(enrichParts.length){
+            enrichedValue = ev.msg + ' — ' + enrichParts.join(' | ');
+          }
+        }
+        actions.push({label: label, value: enrichedValue, time: ev.timeStr});
       });
 
       if(actions.length){
@@ -9200,32 +9277,15 @@ function openWheelsetHistory(wsId){
   h += '<h2>'+componentsHeader+'</h2>';
   if(componentsToShow){
     h += '<table class="wh-tbl">';
-    h += '<thead><tr><th style="width:20%">Position</th><th style="width:26%">Serial number</th><th style="width:16%">Source</th><th>'+(isArchived?'Final measurement':'Current measurement')+'</th></tr></thead><tbody>';
+    h += '<thead><tr><th style="width:20%">Position</th><th style="width:26%">Serial number</th><th style="width:16%">Source</th><th>'+(isArchived?'Final details':'Current details')+'</th></tr></thead><tbody>';
     ['axle','wheelA','wheelB','brakeA','brakeB','ctrbA','ctrbB'].forEach(function(pos){
       var c = componentsToShow[pos];
       if(!c){ h += '<tr><td><b>'+posLabels[pos]+'</b></td><td colspan="3" style="color:#94a3b8;font-style:italic">—</td></tr>'; return; }
-      var rightCol = '';
-      if(pos === 'axle' && (c.journalDiaA != null || c.journalDiaB != null || c.shoulderDiaA != null || c.shoulderDiaB != null)){
-        var parts = [];
-        if(c.journalDiaA != null) parts.push('A journal ' + c.journalDiaA + ' mm');
-        if(c.journalDiaB != null) parts.push('B journal ' + c.journalDiaB + ' mm');
-        if(c.shoulderDiaA != null) parts.push('A shoulder ' + c.shoulderDiaA + ' mm');
-        if(c.shoulderDiaB != null) parts.push('B shoulder ' + c.shoulderDiaB + ' mm');
-        rightCol = parts.join(' · ');
-      }
-      else if(c.journalDia != null){ rightCol = c.journalDia+' mm (journal)'; if(c.shoulderDia != null) rightCol += ' · '+c.shoulderDia+' mm (shoulder)'; }
-      else if(c.dia != null) rightCol = c.dia+' mm (dia)';
-      else if(c.thickness != null) rightCol = c.thickness+' mm (thickness)';
-      else if(c.mountingDate || c.mfgDate){
-        rightCol = (c.mountingDate || c.mfgDate) + (c.mountingDate ? ' (mounted)' : ' (mfg)');
-        if(c.lateralPlay != null) rightCol += ' · ' + c.lateralPlay + ' mm lat play';
-      }
-      if(c.n && rightCol.indexOf(c.n) < 0){ rightCol += (rightCol ? ' · ' : '') + c.n; }
       var srcLabel = c.t==='orig'||c.t==='here'?'arrived with wheelset':c.t==='new'?'new':c.t==='pool'?'from pool':c.t==='refurb'?'refurbished':c.t==='pnd'?'pending':c.t||'?';
       h += '<tr><td><b>'+posLabels[pos]+'</b></td>';
       h += '<td style="font-family:\'Courier New\',monospace;font-weight:600">'+escapeHtml(c.id||'—')+'</td>';
       h += '<td style="color:#64748b">'+escapeHtml(srcLabel)+'</td>';
-      h += '<td>'+escapeHtml(rightCol || '—')+'</td></tr>';
+      h += '<td>'+escapeHtml(buildComponentDetails(c, pos))+'</td></tr>';
     });
     h += '</tbody></table>';
   }
