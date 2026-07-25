@@ -1305,22 +1305,57 @@ function loadState(){
     });
 
     // v19 migration: retroactive arrival-snapshot backfill from edit events.
-    // For wheelsets edited before the pre-swap mirror was added, the arrival snapshot is
-    // stuck at the placeholder serials while the current f has the real ones. Walk edit
-    // events oldest-first; for each position, if arrivalSnapshot[pos].id matches the "from"
-    // side of an edit that happened BEFORE any dis/fit event, replace arrival with the
-    // "to" side. Same for measurements. Applied to both WS and ARCHIVE.
+    // Reads BOTH the global GLOBAL_LOG (has ts + msg fields) and the per-wheelset
+    // ws.log (has t + m fields, stored newest-first). Merges them into one
+    // deduplicated event stream, walks edits chronologically, and for each
+    // position updates the arrival snapshot if it still holds the placeholder.
     function _backfillArrivalFromEdits(w, wsId){
       if(!w.arrivalSnapshot) return;
-      // Build a chronological list of this wheelset's events
-      var evs = GLOBAL_LOG.filter(function(ev){ return ev.wsId === wsId; })
-        .slice().sort(function(a,b){ return (a.ts||0) - (b.ts||0) || (a.seq||0) - (b.seq||0); });
-      // Find the timestamp of the first dis/fit event — arrival can't be updated past that
-      var firstSwapTs = null;
-      for(var i=0;i<evs.length;i++){
-        if(evs[i].tag === 'dis' || evs[i].tag === 'fit'){ firstSwapTs = evs[i].ts; break; }
+
+      // Collect events from both sources into a normalised form: {ts, seq, tag, msg}
+      var evs = [];
+      GLOBAL_LOG.forEach(function(ev){
+        if(ev.wsId === wsId){ evs.push({ts: ev.ts||0, seq: ev.seq||0, tag: ev.tag, msg: ev.msg||''}); }
+      });
+      // Per-wheelset log: newer entries are at the FRONT (unshifted), so index 0 is newest
+      if(w.log && w.log.length){
+        // We don't have real timestamps in ws.log — synthesize based on the reverse
+        // index so ordering works. If GLOBAL_LOG has real ts for the same events,
+        // dedup by tag+message will avoid double-counting.
+        for(var i = w.log.length - 1; i >= 0; i--){
+          var lev = w.log[i];
+          // Some very old rows in the seed data use lowercased tag names — normalise
+          var tag = (lev.tag||'').toLowerCase();
+          var msg = lev.m || lev.msg || '';
+          // Order: oldest first. Use negative index so oldest sorts smallest.
+          evs.push({ts: 0, seq: (w.log.length - i), tag: tag, msg: msg, _fromWsLog: true});
+        }
       }
-      // Position label → snapshot key map (matches the labels used in edit messages)
+
+      // Deduplicate identical events (same tag + message) so global+ws.log overlaps don't count twice
+      var seen = {};
+      evs = evs.filter(function(ev){
+        var key = ev.tag + '::' + ev.msg;
+        if(seen[key]) return false;
+        seen[key] = true;
+        return true;
+      });
+
+      // Chronological sort: real timestamps first (ascending), then ws.log-only events by seq
+      evs.sort(function(a,b){
+        if(a.ts && b.ts) return a.ts - b.ts;
+        if(a.ts && !b.ts) return -1;  // GLOBAL entries come first
+        if(!a.ts && b.ts) return 1;
+        return (a.seq||0) - (b.seq||0);
+      });
+
+      // Find the first dis/fit event — arrival snapshot is frozen after this point
+      var firstSwapIdx = -1;
+      for(var j=0;j<evs.length;j++){
+        if(evs[j].tag === 'dis' || evs[j].tag === 'fit'){ firstSwapIdx = j; break; }
+      }
+
+      // Position label → snapshot key map
       var LBL_TO_POS = {
         'Axle': 'axle',
         'Wheel disc A': 'wheelA',
@@ -1328,18 +1363,22 @@ function loadState(){
         'Brake disc A': 'brakeA',
         'Brake disc B': 'brakeB',
         'CTRB A': 'ctrbA',
-        'CTRB B': 'ctrbB'
+        'CTRB B': 'ctrbB',
+        'Bearing A': 'ctrbA',   // alternative label used in some events
+        'Bearing B': 'ctrbB'
       };
-      // Walk edits chronologically
-      evs.forEach(function(ev){
-        if(ev.tag !== 'edit') return;
-        if(firstSwapTs && ev.ts >= firstSwapTs) return;
+
+      // Walk edits in order, stopping at the first swap
+      for(var k=0;k<evs.length;k++){
+        if(firstSwapIdx >= 0 && k >= firstSwapIdx) break;
+        var ev = evs[k];
+        if(ev.tag !== 'edit') continue;
         var msg = ev.msg || '';
         // Split on the standard separator used in save messages
         var parts = msg.replace(/^Edited:\s*/, '').split(' · ');
         parts.forEach(function(chunk){
-          // Match "Axle id: OLD → NEW"
-          var idMatch = chunk.match(/^(Axle|Wheel disc A|Wheel disc B|Brake disc A|Brake disc B|CTRB A|CTRB B) id:\s*(.+?)\s*→\s*(.+)$/);
+          // Match "Axle id: OLD → NEW" — allow arrow to be → or ->
+          var idMatch = chunk.match(/^(Axle|Wheel disc A|Wheel disc B|Brake disc A|Brake disc B|CTRB A|CTRB B|Bearing A|Bearing B) id:\s*(.+?)\s*(?:→|->)\s*(.+)$/);
           if(idMatch){
             var pos = LBL_TO_POS[idMatch[1]];
             var oldId = idMatch[2].trim();
@@ -1350,20 +1389,18 @@ function loadState(){
             return;
           }
           // Match "Axle Journal diameter: OLD → NEW mm" etc.
-          var measMatch = chunk.match(/^(Axle|Wheel disc A|Wheel disc B|Brake disc A|Brake disc B|CTRB A|CTRB B)\s+([^:]+):\s*(.+?)\s*→\s*(.+)$/);
+          var measMatch = chunk.match(/^(Axle|Wheel disc A|Wheel disc B|Brake disc A|Brake disc B|CTRB A|CTRB B|Bearing A|Bearing B)\s+([^:]+):\s*(.+?)\s*(?:→|->)\s*(.+)$/);
           if(measMatch){
             var pos2 = LBL_TO_POS[measMatch[1]];
             var newVal = measMatch[4].trim().replace(/\s*(mm|kg)\s*$/,'');
             var num = parseFloat(newVal);
             if(pos2 && w.arrivalSnapshot[pos2]){
               var label = measMatch[2].trim().toLowerCase();
-              // Map field labels to snapshot keys (from ATTR_CONFIG)
               if(label === 'journal diameter'){ w.arrivalSnapshot[pos2].journalDia = num; }
               else if(label === 'shoulder diameter'){ w.arrivalSnapshot[pos2].shoulderDia = num; }
               else if(label === 'diameter'){ w.arrivalSnapshot[pos2].dia = num; }
               else if(label === 'thickness'){ w.arrivalSnapshot[pos2].thickness = num; }
               else if(label === 'mounting date' || label === 'mfg date'){
-                // For dates the "new value" is a string
                 var dateVal = measMatch[4].trim();
                 if(label === 'mounting date') w.arrivalSnapshot[pos2].mountingDate = dateVal;
                 else w.arrivalSnapshot[pos2].mfgDate = dateVal;
@@ -1371,10 +1408,13 @@ function loadState(){
             }
           }
         });
-      });
+      }
     }
     Object.keys(WS).forEach(function(id){ _backfillArrivalFromEdits(WS[id], id); });
     Object.keys(ARCHIVE).forEach(function(id){ _backfillArrivalFromEdits(ARCHIVE[id], id); });
+
+    // Expose for real-time trigger from other paths
+    window._backfillArrivalFromEdits = _backfillArrivalFromEdits;
 
     // v20 migration: backfill arrivalBogie for wheelsets that don't have it. For active
     // wheelsets, ws.b is still the arrival bogie (never overwritten). For old archived
@@ -8902,14 +8942,45 @@ function openWheelsetHistory(wsId){
   var box = modal.querySelector('.modal-box');
   var posLabels = {axle:'Axle', wheelA:'Wheel disc A', wheelB:'Wheel disc B', brakeA:'Brake disc A', brakeB:'Brake disc B', ctrbA:'CTRB bearing A', ctrbB:'CTRB bearing B'};
 
-  // Sort events oldest-first for this wheelset
+  // Merge events from BOTH GLOBAL_LOG (which has real ts + msg fields) and the
+  // per-wheelset ws.log (which uses t + m + is newest-first). Some wheelsets have
+  // rich per-wheelset logs but no global entries. Dedup by tag+message.
   var events = GLOBAL_LOG.filter(function(ev){ return ev.wsId === wsId; })
     .slice()
-    .sort(function(a,b){
-      var dt = (a.ts||0) - (b.ts||0);
-      if(dt !== 0) return dt;
-      return (a.seq||0) - (b.seq||0);
-    });
+    .map(function(ev){ return {ts: ev.ts||0, seq: ev.seq||0, tag: ev.tag, msg: ev.msg||'', timeStr: ev.timeStr||'', meta: ev.meta||null}; });
+
+  // Track seen (tag+msg) so we don't double-count entries that exist in both logs
+  var seenKeys = {};
+  events.forEach(function(ev){ seenKeys[ev.tag+'::'+ev.msg] = true; });
+
+  if(ws.log && ws.log.length){
+    // ws.log is stored newest-first (unshifted). Iterate reverse to get oldest first.
+    for(var iL = ws.log.length - 1; iL >= 0; iL--){
+      var lev = ws.log[iL];
+      var tag = (lev.tag||'').toLowerCase();
+      var msg = lev.m || lev.msg || '';
+      var key = tag + '::' + msg;
+      if(seenKeys[key]) continue;
+      seenKeys[key] = true;
+      events.push({
+        ts: 0,   // no real timestamp; ordering handled by sort
+        seq: (ws.log.length - iL),   // preserved chronological order
+        tag: tag,
+        msg: msg,
+        timeStr: lev.t || '',
+        meta: null,
+        _fromWsLog: true
+      });
+    }
+  }
+
+  // Chronological sort: real timestamps first (ascending), then ws.log-only by seq
+  events.sort(function(a,b){
+    if(a.ts && b.ts) return a.ts - b.ts;
+    if(a.ts && !b.ts) return -1;   // GLOBAL entries come first when mixing
+    if(!a.ts && b.ts) return 1;
+    return (a.seq||0) - (b.seq||0);
+  });
 
   var stages = buildStageTimeline(wsId, ws, events);
   var arrivalSnapshot = buildArrivalSnapshot(ws, events);
@@ -9517,6 +9588,13 @@ function applyCloudUpdate(docName, data, isFirst){
     // overview stays in sync. The detail panel (which contains input forms)
     // is only re-rendered if the user isn't actively typing in it.
     partialRefreshKeepingInputs();
+    // Re-run arrival snapshot backfill on freshly-loaded wheelsets
+    if(typeof window._backfillArrivalFromEdits === 'function'){
+      try {
+        Object.keys(WS).forEach(function(id){ window._backfillArrivalFromEdits(WS[id], id); });
+        Object.keys(ARCHIVE).forEach(function(id){ window._backfillArrivalFromEdits(ARCHIVE[id], id); });
+      } catch(e){ console.error('backfill on cloud update failed', e); }
+    }
     // If a history modal is open for a wheelset that just changed remotely, re-render it
     if(typeof refreshOpenHistoryReport === 'function') refreshOpenHistoryReport();
   }
@@ -9524,6 +9602,14 @@ function applyCloudUpdate(docName, data, isFirst){
   // immediately after first sync (otherwise the screen sticks on localStorage data
   // until the second cloud update arrives).
   else if(window.Cloud && window.Cloud.isFullyLoaded && window.Cloud.isFullyLoaded()){
+    // Run arrival backfill after full cloud load — this is the primary path where
+    // wheelsets like RCNK/OLD/5373 finally have their events loaded.
+    if(typeof window._backfillArrivalFromEdits === 'function'){
+      try {
+        Object.keys(WS).forEach(function(id){ window._backfillArrivalFromEdits(WS[id], id); });
+        Object.keys(ARCHIVE).forEach(function(id){ window._backfillArrivalFromEdits(ARCHIVE[id], id); });
+      } catch(e){ console.error('backfill on first-cloud-load failed', e); }
+    }
     try { fullRefresh(); } catch(e){}
   }
 }
