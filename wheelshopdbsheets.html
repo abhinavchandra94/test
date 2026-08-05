@@ -871,11 +871,42 @@ window.Cloud = {
       });
   },
 
+  // Reassemble any chunked docs in a state map. A chunked doc has a manifest
+  // {__chunked: N, ...} at its main key, plus part-docs at <name>__part0..N-1
+  // whose values are {__chunk_data: "..."}. Concatenates chunks in order and
+  // JSON.parses the result back into the original object.
+  _reassemble: function(state){
+    if(!state) return state;
+    var out = {};
+    Object.keys(state).forEach(function(name){
+      // Skip part-docs; they're consumed by their manifest below
+      if(/__part\d+$/.test(name)) return;
+      var v = state[name];
+      if(v && typeof v === 'object' && typeof v.__chunked === 'number'){
+        var combined = '';
+        for(var i=0; i<v.__chunked; i++){
+          var partKey = name + '__part' + i;
+          var part = state[partKey];
+          if(part && typeof part === 'object' && typeof part.__chunk_data === 'string'){
+            combined += part.__chunk_data;
+          } else if(typeof part === 'string'){
+            combined += part;   // legacy path
+          }
+        }
+        try { out[name] = JSON.parse(combined); }
+        catch(e){ console.error('Chunked reassembly failed for', name, e); out[name] = null; }
+      } else {
+        out[name] = v;
+      }
+    });
+    return out;
+  },
+
   // Apply a fetched state payload to local state via onRemoteUpdate callback.
   // The payload shape: {ok:true, version, state:{wheelsets, pools, archive, global_log, component_log, operators, lathes}}
   _applyInitial: function(payload){
     if(!payload || !payload.state) return;
-    var s = payload.state;
+    var s = this._reassemble(payload.state);
     this._lastRemoteVersion = payload.version || 0;
     var self = this;
     // Fire onRemoteUpdate for each doc so the main app's applyCloudUpdate() runs its logic
@@ -889,9 +920,10 @@ window.Cloud = {
 
   _applyPolled: function(payload){
     if(!payload || !payload.state) return;
+    if(this.pendingWrites > 0 || Object.keys(this._writeQueue).length > 0){ return; }
     if(payload.version && payload.version === this._lastRemoteVersion) return; // nothing changed
     this._lastRemoteVersion = payload.version || 0;
-    var s = payload.state;
+    var s = this._reassemble(payload.state);
     var self = this;
     SYNC_DOCS.forEach(function(name){
       var data = s[name];
@@ -928,8 +960,35 @@ window.Cloud = {
   // queueWrite is called by saveState for each doc. We batch and debounce so a
   // burst of writes becomes one Apps Script call.
   queueWrite: function(docName, data){
-    if(SYNC_DOCS.indexOf(docName) < 0) return;
-    this._writeQueue[docName] = data;
+    // Allow part-docs through even though they're not in SYNC_DOCS
+    if(SYNC_DOCS.indexOf(docName) < 0 && !/__part\d+$/.test(docName)) return;
+
+    // Chunking: Google Sheets caps cell values at 50,000 characters. If the JSON
+    // form of this doc would exceed that, split it across multiple part-docs and
+    // replace the main doc with a small manifest. Reassembled on read.
+    var CHUNK_SIZE = 40000;
+    var CHUNK_ROOM = 15;   // clear this many extra part-slots to prevent orphans
+    var serialized = null;
+    try { serialized = typeof data === 'string' ? data : JSON.stringify(data); } catch(e){ serialized = null; }
+    if(serialized !== null && serialized.length > CHUNK_SIZE && !/__part\d+$/.test(docName)){
+      // Split into chunks
+      var chunks = [];
+      for(var i=0; i<serialized.length; i+=CHUNK_SIZE){
+        chunks.push(serialized.slice(i, i+CHUNK_SIZE));
+      }
+      // Store manifest under the original docName
+      this._writeQueue[docName] = {__chunked: chunks.length, __ts: Date.now()};
+      // Store each chunk as a wrapped object (so Apps Script's JSON.parse works)
+      for(var j=0; j<chunks.length; j++){
+        this._writeQueue[docName + '__part' + j] = {__chunk_data: chunks[j]};
+      }
+      // Clear any orphan part-docs from a previous save that had more chunks
+      for(var k=chunks.length; k<chunks.length+CHUNK_ROOM; k++){
+        this._writeQueue[docName + '__part' + k] = {__chunk_data: '', __empty: true};
+      }
+    } else {
+      this._writeQueue[docName] = data;
+    }
     this.pendingWrites = Object.keys(this._writeQueue).length;
     this._notify();
     if(this._writeTimer) clearTimeout(this._writeTimer);
@@ -963,6 +1022,12 @@ window.Cloud = {
         Object.keys(queue).forEach(function(k){ if(self._writeQueue[k] === undefined) self._writeQueue[k] = queue[k]; });
         self.pendingWrites = Object.keys(self._writeQueue).length;
         self.online = false;
+        // Log detailed diagnostic to console (silently — user sees only the summary error)
+        var sizes = {};
+        Object.keys(queue).forEach(function(k){
+          try { sizes[k] = JSON.stringify(queue[k]).length; } catch(_){}
+        });
+        console.error('Cloud save failed:', e && e.message || e, '\nDoc sizes:', sizes);
         self.err = 'Save failed: ' + (e && e.message || e) + ' — will retry.';
         self._notify();
         setTimeout(function(){ self._flushWrites(); }, 15000);
@@ -1530,14 +1595,37 @@ function saveState(){
     // Skip during initial boot so default seed data doesn't overwrite cloud state.
     if(bootSafe && window.Cloud && window.Cloud.queueWrite){
       var globalLogForCloud = GLOBAL_LOG.slice(0, 500);
+      // Aggressively trim per-component logs — keep last 20 events per serial
       var componentLogForCloud = {};
       Object.keys(COMPONENT_LOG).forEach(function(s){
         var arr = COMPONENT_LOG[s] || [];
-        componentLogForCloud[s] = arr.length > 50 ? arr.slice(-50) : arr;
+        componentLogForCloud[s] = arr.length > 20 ? arr.slice(-20) : arr;
       });
-      window.Cloud.queueWrite('wheelsets', WS);
+      // Trim per-wheelset ws.log — cap at last 60 events per wheelset
+      // ws.log is stored newest-first, so we keep the FIRST 60 entries (recent ones).
+      function trimWsLogs(store){
+        var trimmed = {};
+        Object.keys(store).forEach(function(id){
+          var w = store[id];
+          if(!w) return;
+          if(w.log && w.log.length > 60){
+            // Clone shallow, replace .log with trimmed copy
+            var copy = {};
+            Object.keys(w).forEach(function(k){ copy[k] = w[k]; });
+            copy.log = w.log.slice(0, 60);
+            trimmed[id] = copy;
+          } else {
+            trimmed[id] = w;
+          }
+        });
+        return trimmed;
+      }
+      var wsForCloud = trimWsLogs(WS);
+      var archiveForCloud = trimWsLogs(ARCHIVE);
+
+      window.Cloud.queueWrite('wheelsets', wsForCloud);
       window.Cloud.queueWrite('pools', POOL);
-      window.Cloud.queueWrite('archive', ARCHIVE);
+      window.Cloud.queueWrite('archive', archiveForCloud);
       window.Cloud.queueWrite('global_log', globalLogForCloud);
       window.Cloud.queueWrite('component_log', componentLogForCloud);
       window.Cloud.queueWrite('operators', OPERATORS);
