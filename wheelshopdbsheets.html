@@ -863,10 +863,16 @@ window.Cloud = {
 
   _fetchState: function(){
     var url = this._getUrl();
-    return fetch(url + (url.indexOf('?')>=0?'&':'?') + 'action=getState&device=' + encodeURIComponent(DEVICE_ID), {method:'GET', redirect:'follow'})
-      .then(function(r){ return r.json(); })
-      .then(function(j){
-        if(!j || !j.ok) throw new Error((j && j.error) || 'getState failed');
+    // v18: prefer new getAll action (reads from per-row tabs). Falls back to
+    // getState if Apps Script is still v3 (returns same shape either way).
+    return fetch(url + (url.indexOf('?')>=0?'&':'?') + 'action=getAll&device=' + encodeURIComponent(DEVICE_ID), {method:'GET', redirect:'follow'})
+      .then(function(r){ return r.text(); })
+      .then(function(t){
+        if(/^\s*(<!doctype|<html)/i.test(t)) throw new Error('Apps Script returned HTML — check deployment');
+        var j;
+        try { j = JSON.parse(t); }
+        catch(_){ throw new Error('Non-JSON response'); }
+        if(!j || !j.ok) throw new Error((j && j.error) || 'getAll failed');
         return j;
       });
   },
@@ -994,6 +1000,108 @@ window.Cloud = {
     if(this._writeTimer) clearTimeout(this._writeTimer);
     var self = this;
     this._writeTimer = setTimeout(function(){ self._flushWrites(); }, 800);
+  },
+
+  // v18: per-wheelset row writes. Each call is one small HTTP request (~3 KB),
+  // so no single Sheet cell can ever exceed the 50 KB limit. The queue coalesces
+  // multiple row writes into a batched delivery every 800 ms.
+  _rowWriteQueue: {ws:{}, arch:{}, pool:null, ops:null, lathes:null},
+  _rowFlushTimer: null,
+
+  saveWheelsetRow: function(id, data){
+    this._rowWriteQueue.ws[id] = data;   // null = delete
+    this._scheduleRowFlush();
+  },
+  saveArchiveRow: function(id, data){
+    this._rowWriteQueue.arch[id] = data;
+    this._scheduleRowFlush();
+  },
+  savePool: function(data){
+    this._rowWriteQueue.pool = data;
+    this._scheduleRowFlush();
+  },
+  saveOperators: function(data){
+    this._rowWriteQueue.ops = data;
+    this._scheduleRowFlush();
+  },
+  saveLathes: function(data){
+    this._rowWriteQueue.lathes = data;
+    this._scheduleRowFlush();
+  },
+  _scheduleRowFlush: function(){
+    this.pendingWrites = Object.keys(this._rowWriteQueue.ws).length + Object.keys(this._rowWriteQueue.arch).length +
+      (this._rowWriteQueue.pool!==null?1:0) + (this._rowWriteQueue.ops!==null?1:0) + (this._rowWriteQueue.lathes!==null?1:0);
+    this._notify();
+    if(this._rowFlushTimer) clearTimeout(this._rowFlushTimer);
+    var self = this;
+    this._rowFlushTimer = setTimeout(function(){ self._flushRowWrites(); }, 800);
+  },
+  _flushRowWrites: function(){
+    if(this._rowFlushTimer){ clearTimeout(this._rowFlushTimer); this._rowFlushTimer = null; }
+    var url = this._getUrl();
+    if(!url) return;
+    var q = this._rowWriteQueue;
+    this._rowWriteQueue = {ws:{}, arch:{}, pool:null, ops:null, lathes:null};
+    var self = this;
+
+    // Build the list of individual writes to send
+    var writes = [];
+    Object.keys(q.ws).forEach(function(id){
+      writes.push({action:'saveWheelset', id:id, data: q.ws[id]===null ? '' : JSON.stringify(q.ws[id])});
+    });
+    Object.keys(q.arch).forEach(function(id){
+      writes.push({action:'saveArchive', id:id, data: q.arch[id]===null ? '' : JSON.stringify(q.arch[id])});
+    });
+    if(q.pool !== null) writes.push({action:'savePool', data: JSON.stringify(q.pool)});
+    if(q.ops !== null) writes.push({action:'saveOperators', data: JSON.stringify(q.ops)});
+    if(q.lathes !== null) writes.push({action:'saveLathes', data: JSON.stringify(q.lathes)});
+
+    if(writes.length === 0) return;
+
+    // Send them in parallel (Sheets handles concurrent Apps Script invocations)
+    var failed = [];
+    var completed = 0;
+    var errorSet = false;
+    writes.forEach(function(w){
+      var body = Object.keys(w).map(function(k){ return encodeURIComponent(k)+'='+encodeURIComponent(w[k]); }).join('&');
+      body += '&device=' + encodeURIComponent(DEVICE_ID);
+      fetch(url, {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body, redirect:'follow'})
+        .then(function(r){ return r.text(); })
+        .then(function(t){
+          if(/^\s*(<!doctype|<html)/i.test(t)) throw new Error('HTML response');
+          var j;
+          try { j = JSON.parse(t); }
+          catch(_){ throw new Error('Non-JSON: '+t.substring(0,100)); }
+          if(!j.ok) throw new Error(j.error || 'save failed');
+        })
+        .catch(function(e){
+          failed.push({write: w, error: e && e.message});
+          if(!errorSet){ errorSet = true; self.online = false; self.err = 'Save error: ' + (e && e.message); self._notify(); }
+        })
+        .then(function(){
+          completed++;
+          if(completed === writes.length){
+            if(failed.length === 0){
+              self.pendingWrites = 0;
+              self.online = true;
+              self.err = null;
+              self._notify();
+            } else {
+              // Re-queue only the failed writes
+              failed.forEach(function(f){
+                var w = f.write;
+                if(w.action === 'saveWheelset') self._rowWriteQueue.ws[w.id] = w.data ? JSON.parse(w.data) : null;
+                else if(w.action === 'saveArchive') self._rowWriteQueue.arch[w.id] = w.data ? JSON.parse(w.data) : null;
+                else if(w.action === 'savePool') self._rowWriteQueue.pool = JSON.parse(w.data);
+                else if(w.action === 'saveOperators') self._rowWriteQueue.ops = JSON.parse(w.data);
+                else if(w.action === 'saveLathes') self._rowWriteQueue.lathes = JSON.parse(w.data);
+              });
+              console.error('[Cloud] '+failed.length+'/'+writes.length+' writes failed. Will retry in 15s.');
+              setTimeout(function(){ self._scheduleRowFlush(); }, 15000);
+            }
+          }
+        });
+    });
   },
 
   _flushWrites: function(){
@@ -1609,37 +1717,100 @@ function saveState(){
 
     // Cloud push (debounced — coalesces writes within 300ms window)
     // Skip during initial boot so default seed data doesn't overwrite cloud state.
-    if(bootSafe && window.Cloud && window.Cloud.queueWrite){
-      // Radical size reduction:
-      // 1. component_log dropped from cloud entirely (was ~2 MB). It is rebuilt on load
-      //    from ws.log across all wheelsets by _rebuildComponentLog().
-      // 2. global_log trimmed to last 200 entries (was 500, aiming for well under cell limit)
-      // 3. per-wheelset ws.log trimmed to last 40 entries (was 60)
+    // v18: Cloud push uses PER-WHEELSET writes (not one giant blob).
+    // Each modified wheelset is a small ~3 KB write, never exceeds cell limits.
+    // We diff against the last-saved snapshot so unchanged wheelsets aren't re-sent.
+    if(bootSafe && window.Cloud && window.Cloud.saveWheelsetRow){
+      // Build "lastSaved" snapshot cache if it doesn't exist yet
+      if(!window._lastSaved) window._lastSaved = {ws:{}, archive:{}, pool:'', ops:'', lathes:''};
+      var lastSaved = window._lastSaved;
+
+      // Trim ws.log to last 40 entries per wheelset (recent-most, since it's newest-first)
+      function trimWs(w){
+        if(!w) return w;
+        if(w.log && w.log.length > 40){
+          var copy = {}; Object.keys(w).forEach(function(k){ copy[k] = w[k]; });
+          copy.log = w.log.slice(0, 40);
+          return copy;
+        }
+        return w;
+      }
+
+      // ACTIVE wheelsets — push each changed one
+      Object.keys(WS).forEach(function(id){
+        var trimmed = trimWs(WS[id]);
+        var j = JSON.stringify(trimmed);
+        if(lastSaved.ws[id] !== j){
+          window.Cloud.saveWheelsetRow(id, trimmed);
+          lastSaved.ws[id] = j;
+        }
+      });
+      // Deleted wheelsets — send empty payload
+      Object.keys(lastSaved.ws).forEach(function(id){
+        if(!WS[id]){
+          window.Cloud.saveWheelsetRow(id, null);
+          delete lastSaved.ws[id];
+        }
+      });
+
+      // ARCHIVE — same pattern
+      Object.keys(ARCHIVE).forEach(function(id){
+        var trimmed2 = trimWs(ARCHIVE[id]);
+        var j2 = JSON.stringify(trimmed2);
+        if(lastSaved.archive[id] !== j2){
+          window.Cloud.saveArchiveRow(id, trimmed2);
+          lastSaved.archive[id] = j2;
+        }
+      });
+      Object.keys(lastSaved.archive).forEach(function(id){
+        if(!ARCHIVE[id]){
+          window.Cloud.saveArchiveRow(id, null);
+          delete lastSaved.archive[id];
+        }
+      });
+
+      // Pools — one row total, small
+      var poolJ = JSON.stringify(POOL);
+      if(lastSaved.pool !== poolJ){
+        window.Cloud.savePool(POOL);
+        lastSaved.pool = poolJ;
+      }
+      // Operators
+      var opsJ = JSON.stringify(OPERATORS);
+      if(lastSaved.ops !== opsJ){
+        window.Cloud.saveOperators(OPERATORS);
+        lastSaved.ops = opsJ;
+      }
+      // Lathes
+      var lathesObj = {atl: ATL_WIP, vtl: VTL_WIP, shift: SHIFT};
+      var lathesJ = JSON.stringify(lathesObj);
+      if(lastSaved.lathes !== lathesJ){
+        window.Cloud.saveLathes(lathesObj);
+        lastSaved.lathes = lathesJ;
+      }
+    }
+    // Backward compatibility: if the new Cloud methods aren't available (v17
+    // Cloud shim still running), fall back to the old blob-queue path.
+    else if(bootSafe && window.Cloud && window.Cloud.queueWrite){
       var globalLogForCloud = GLOBAL_LOG.slice(0, 200);
-      function trimWsLogs(store){
-        var trimmed = {};
+      function trimWsLogs2(store){
+        var trimmed3 = {};
         Object.keys(store).forEach(function(id){
           var w = store[id];
           if(!w) return;
           if(w.log && w.log.length > 40){
-            var copy = {};
-            Object.keys(w).forEach(function(k){ copy[k] = w[k]; });
-            copy.log = w.log.slice(0, 40);
-            trimmed[id] = copy;
-          } else {
-            trimmed[id] = w;
-          }
+            var copy3 = {};
+            Object.keys(w).forEach(function(k){ copy3[k] = w[k]; });
+            copy3.log = w.log.slice(0, 40);
+            trimmed3[id] = copy3;
+          } else { trimmed3[id] = w; }
         });
-        return trimmed;
+        return trimmed3;
       }
-      var wsForCloud = trimWsLogs(WS);
-      var archiveForCloud = trimWsLogs(ARCHIVE);
-
-      window.Cloud.queueWrite('wheelsets', wsForCloud);
+      window.Cloud.queueWrite('wheelsets', trimWsLogs2(WS));
       window.Cloud.queueWrite('pools', POOL);
-      window.Cloud.queueWrite('archive', archiveForCloud);
+      window.Cloud.queueWrite('archive', trimWsLogs2(ARCHIVE));
       window.Cloud.queueWrite('global_log', globalLogForCloud);
-      // component_log is NOT saved — rebuilt from ws.log on load. Saves ~2 MB.
       window.Cloud.queueWrite('operators', OPERATORS);
       window.Cloud.queueWrite('lathes', {atl: ATL_WIP, vtl: VTL_WIP, shift: SHIFT});
     }
@@ -9980,49 +10151,45 @@ function applyCloudUpdate(docName, data, isFirst){
     }
     try { fullRefresh(); } catch(e){}
 
-    // v17 SELF-HEAL: send a trimmed cleanup save immediately if the loaded state
-    // was bloated. This ensures the cloud state is trimmed even if the user does
-    // no further actions. Uses the same saveState() path but forces bootSafe on
-    // so it actually pushes.
+    // v18 ONE-TIME MIGRATION: if this is the first time v18 has loaded, and the
+    // per-row tabs are empty but the legacy state tab still has data, trigger
+    // the migration action in Apps Script. Safe to run multiple times.
     setTimeout(function(){
       try {
-        var wsSize = JSON.stringify(WS).length;
-        var archSize = JSON.stringify(ARCHIVE).length;
-        if(wsSize + archSize > 50000){
-          window._bootCloudSafe = true;
-
-          // First: send a direct, minimal write to explicitly overwrite the giant
-          // component_log cell with empty. This is a raw fetch so it succeeds even
-          // if the normal queued save is stuck.
-          try {
-            var url = window.Cloud._endpoint || (window.Cloud._getUrl && window.Cloud._getUrl());
-            if(url){
-              var minimalPayload = 'action=saveState&device=v17_selfheal&state=' +
-                encodeURIComponent(JSON.stringify({component_log: {}}));
-              fetch(url, {
-                method:'POST',
-                headers:{'Content-Type':'application/x-www-form-urlencoded'},
-                body: minimalPayload,
-                redirect:'follow'
-              }).then(function(r){ return r.text(); })
-                .then(function(t){
-                  if(/^<!doctype|<html/i.test(t)){
-                    console.warn('[v17 self-heal] Server returned HTML — Apps Script may be past quota. Try again in 24h.');
-                    if(typeof toast === 'function') toast('Self-heal blocked: Apps Script quota exceeded. Wait 24h and reload.', 'err');
-                  } else {
-                    console.log('[v17 self-heal] Component log wiped from cloud successfully.');
-                    if(typeof toast === 'function') toast('Cloud state healed. Bloated component_log cleared.', 'ok');
-                  }
-                })
-                .catch(function(e){ console.error('[v17 self-heal] wipe failed', e && e.message); });
+        var alreadyMigrated = localStorage.getItem('v18_migration_done');
+        if(alreadyMigrated) return;
+        // Cheap heuristic: if we already have wheelsets loaded via getAll, we're
+        // presumably on the new backend. If not, the migration will fix it.
+        var url = window.Cloud._endpoint || (window.Cloud._getUrl && window.Cloud._getUrl());
+        if(!url) return;
+        var body = 'action=migrateFromState&device=v18_migration';
+        fetch(url, {
+          method:'POST',
+          headers:{'Content-Type':'application/x-www-form-urlencoded'},
+          body: body,
+          redirect:'follow'
+        }).then(function(r){ return r.text(); })
+          .then(function(t){
+            if(/^<!doctype|<html/i.test(t)){
+              console.warn('[v18 migration] HTML response — Apps Script may be v3 (no migration action). Skipping.');
+              return;
             }
-          } catch(_){}
-
-          // Second: queue a normal trimmed save via the standard path
-          if(typeof saveState === 'function') saveState();
-          console.log('[v17 self-heal] Bloated state detected. Sending cleanup + trimmed save.');
-        }
-      } catch(e){ console.error('[v17 self-heal] failed', e); }
+            var j;
+            try { j = JSON.parse(t); } catch(_){ return; }
+            if(j && j.ok){
+              localStorage.setItem('v18_migration_done', '1');
+              console.log('[v18 migration] complete:', j.results);
+              if(typeof toast === 'function' && j.results && j.results.wheelsets > 0){
+                toast('Migrated ' + j.results.wheelsets + ' wheelsets + ' + j.results.archive + ' archived to per-row storage', 'ok');
+              }
+              // Refetch to load from the new per-row tabs
+              if(window.Cloud && window.Cloud._fetchState){
+                window.Cloud._fetchState().then(function(p){ window.Cloud._applyInitial(p); fullRefresh(); }).catch(function(){});
+              }
+            }
+          })
+          .catch(function(e){ console.error('[v18 migration] failed', e && e.message); });
+      } catch(e){ console.error('[v18 migration] error', e); }
     }, 3000);
   }
 }
