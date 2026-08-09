@@ -1006,7 +1006,23 @@ window.Cloud = {
     var self = this;
     var payload = 'action=saveState&device=' + encodeURIComponent(DEVICE_ID) + '&state=' + encodeURIComponent(JSON.stringify(queue));
     fetch(url, {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: payload, redirect:'follow'})
-      .then(function(r){ return r.json(); })
+      .then(function(r){
+        // Check status and content-type before parsing. When Apps Script hits
+        // a runtime error (payload too large, quota exceeded, timeout, etc.) it
+        // returns an HTML error page instead of JSON — detect that specifically
+        // so the user sees a meaningful message.
+        var status = r.status;
+        return r.text().then(function(txt){
+          if(/^\s*(<!doctype|<html)/i.test(txt)){
+            throw new Error('Apps Script returned HTML page (status '+status+') — likely: payload too large, script quota exceeded, or deployment issue. Reduce state size or re-deploy the Apps Script.');
+          }
+          if(!txt){
+            throw new Error('Empty response from Apps Script (status '+status+')');
+          }
+          try { return JSON.parse(txt); }
+          catch(e){ throw new Error('Non-JSON response (status '+status+', first 100 chars): ' + txt.substring(0,100)); }
+        });
+      })
       .then(function(j){
         if(j && j.ok){
           self._lastRemoteVersion = j.version || (self._lastRemoteVersion + 1);
@@ -1594,25 +1610,21 @@ function saveState(){
     // Cloud push (debounced — coalesces writes within 300ms window)
     // Skip during initial boot so default seed data doesn't overwrite cloud state.
     if(bootSafe && window.Cloud && window.Cloud.queueWrite){
-      var globalLogForCloud = GLOBAL_LOG.slice(0, 500);
-      // Aggressively trim per-component logs — keep last 20 events per serial
-      var componentLogForCloud = {};
-      Object.keys(COMPONENT_LOG).forEach(function(s){
-        var arr = COMPONENT_LOG[s] || [];
-        componentLogForCloud[s] = arr.length > 20 ? arr.slice(-20) : arr;
-      });
-      // Trim per-wheelset ws.log — cap at last 60 events per wheelset
-      // ws.log is stored newest-first, so we keep the FIRST 60 entries (recent ones).
+      // Radical size reduction:
+      // 1. component_log dropped from cloud entirely (was ~2 MB). It is rebuilt on load
+      //    from ws.log across all wheelsets by _rebuildComponentLog().
+      // 2. global_log trimmed to last 200 entries (was 500, aiming for well under cell limit)
+      // 3. per-wheelset ws.log trimmed to last 40 entries (was 60)
+      var globalLogForCloud = GLOBAL_LOG.slice(0, 200);
       function trimWsLogs(store){
         var trimmed = {};
         Object.keys(store).forEach(function(id){
           var w = store[id];
           if(!w) return;
-          if(w.log && w.log.length > 60){
-            // Clone shallow, replace .log with trimmed copy
+          if(w.log && w.log.length > 40){
             var copy = {};
             Object.keys(w).forEach(function(k){ copy[k] = w[k]; });
-            copy.log = w.log.slice(0, 60);
+            copy.log = w.log.slice(0, 40);
             trimmed[id] = copy;
           } else {
             trimmed[id] = w;
@@ -1627,7 +1639,7 @@ function saveState(){
       window.Cloud.queueWrite('pools', POOL);
       window.Cloud.queueWrite('archive', archiveForCloud);
       window.Cloud.queueWrite('global_log', globalLogForCloud);
-      window.Cloud.queueWrite('component_log', componentLogForCloud);
+      // component_log is NOT saved — rebuilt from ws.log on load. Saves ~2 MB.
       window.Cloud.queueWrite('operators', OPERATORS);
       window.Cloud.queueWrite('lathes', {atl: ATL_WIP, vtl: VTL_WIP, shift: SHIFT});
     }
@@ -9759,6 +9771,71 @@ if(searchResults){
 
 
 // Apply a remote update from Firestore — called when another device pushes data
+// Rebuild COMPONENT_LOG from every wheelset's ws.log entries. Called after cloud
+// loads wheelsets — replaces the need to store COMPONENT_LOG in cloud (which was
+// ~2 MB and blowing the Sheets cell limit). Parses fit/dis events to reconstruct
+// per-serial history. Also scans arrivalSnapshot and current f to add "seen"
+// entries so components that never had a fit event still appear in the log.
+function rebuildComponentLogFromWheelsets(){
+  COMPONENT_LOG = {};
+  var posLabels = {axle:'Axle', wheelA:'Wheel disc A', wheelB:'Wheel disc B', brakeA:'Brake disc A', brakeB:'Brake disc B', ctrbA:'CTRB A', ctrbB:'CTRB B'};
+  function processStore(store, isArchive){
+    Object.keys(store).forEach(function(wsId){
+      var w = store[wsId];
+      if(!w) return;
+      // Add current-fit entries so every currently-attached component shows up
+      ['axle','wheelA','wheelB','brakeA','brakeB','ctrbA','ctrbB'].forEach(function(pos){
+        var c = w.f && w.f[pos];
+        if(c && c.id){
+          if(!COMPONENT_LOG[c.id]) COMPONENT_LOG[c.id] = [];
+          COMPONENT_LOG[c.id].push({
+            ts: w.arTs || 0, kind: isArchive ? 'was_on' : 'currently_on',
+            wsId: wsId, pos: posLabels[pos] || pos,
+            note: isArchive ? 'on wheelset at dispatch' : 'on active wheelset'
+          });
+        }
+        // Also arrival-snapshot entries
+        var ac = w.arrivalSnapshot && w.arrivalSnapshot[pos];
+        if(ac && ac.id && (!c || ac.id !== c.id)){
+          if(!COMPONENT_LOG[ac.id]) COMPONENT_LOG[ac.id] = [];
+          COMPONENT_LOG[ac.id].push({
+            ts: w.arTs || 0, kind: 'arrived_on',
+            wsId: wsId, pos: posLabels[pos] || pos,
+            note: 'arrived on wheelset (later swapped)'
+          });
+        }
+      });
+      // Parse ws.log for fit/dis events referencing specific serials
+      if(w.log && w.log.length){
+        w.log.forEach(function(ev){
+          if(ev.tag !== 'fit' && ev.tag !== 'dis') return;
+          var msg = ev.m || ev.msg || '';
+          // Extract candidate serial numbers (alphanumeric with hyphen/slash, min 4 chars)
+          var matches = msg.match(/\b[A-Z0-9][A-Z0-9\-\/\s]{3,}[A-Z0-9]\b/gi) || [];
+          matches.forEach(function(candidate){
+            var serial = candidate.trim();
+            if(serial.length < 4 || serial.length > 40) return;
+            // Skip common non-serial words that would match the regex
+            if(/^(Axle|Wheel|Brake|CTRB|Bearing|disc|POOL|MOUNT|OK|NIL|from|and|the|for)$/i.test(serial)) return;
+            if(!COMPONENT_LOG[serial]) COMPONENT_LOG[serial] = [];
+            COMPONENT_LOG[serial].push({
+              ts: 0, kind: ev.tag, wsId: wsId,
+              note: msg.substring(0, 200)
+            });
+          });
+        });
+      }
+    });
+  }
+  processStore(WS, false);
+  processStore(ARCHIVE, true);
+  // Sort each serial's events chronologically and cap at last 30
+  Object.keys(COMPONENT_LOG).forEach(function(s){
+    COMPONENT_LOG[s].sort(function(a,b){ return (a.ts||0) - (b.ts||0); });
+    if(COMPONENT_LOG[s].length > 30) COMPONENT_LOG[s] = COMPONENT_LOG[s].slice(-30);
+  });
+}
+
 function applyCloudUpdate(docName, data, isFirst){
   if(data == null) return;
   // Trace into cloud diagnostics
@@ -9890,15 +9967,63 @@ function applyCloudUpdate(docName, data, isFirst){
   // immediately after first sync (otherwise the screen sticks on localStorage data
   // until the second cloud update arrives).
   else if(window.Cloud && window.Cloud.isFullyLoaded && window.Cloud.isFullyLoaded()){
-    // Run arrival backfill after full cloud load — this is the primary path where
-    // wheelsets like RCNK/OLD/5373 finally have their events loaded.
+    // Run arrival backfill after full cloud load
     if(typeof window._backfillArrivalFromEdits === 'function'){
       try {
         Object.keys(WS).forEach(function(id){ window._backfillArrivalFromEdits(WS[id], id); });
         Object.keys(ARCHIVE).forEach(function(id){ window._backfillArrivalFromEdits(ARCHIVE[id], id); });
       } catch(e){ console.error('backfill on first-cloud-load failed', e); }
     }
+    // Rebuild COMPONENT_LOG from wheelset logs (no longer stored in cloud)
+    if(typeof rebuildComponentLogFromWheelsets === 'function'){
+      try { rebuildComponentLogFromWheelsets(); } catch(e){ console.error('rebuildComponentLog failed', e); }
+    }
     try { fullRefresh(); } catch(e){}
+
+    // v17 SELF-HEAL: send a trimmed cleanup save immediately if the loaded state
+    // was bloated. This ensures the cloud state is trimmed even if the user does
+    // no further actions. Uses the same saveState() path but forces bootSafe on
+    // so it actually pushes.
+    setTimeout(function(){
+      try {
+        var wsSize = JSON.stringify(WS).length;
+        var archSize = JSON.stringify(ARCHIVE).length;
+        if(wsSize + archSize > 50000){
+          window._bootCloudSafe = true;
+
+          // First: send a direct, minimal write to explicitly overwrite the giant
+          // component_log cell with empty. This is a raw fetch so it succeeds even
+          // if the normal queued save is stuck.
+          try {
+            var url = window.Cloud._endpoint || (window.Cloud._getUrl && window.Cloud._getUrl());
+            if(url){
+              var minimalPayload = 'action=saveState&device=v17_selfheal&state=' +
+                encodeURIComponent(JSON.stringify({component_log: {}}));
+              fetch(url, {
+                method:'POST',
+                headers:{'Content-Type':'application/x-www-form-urlencoded'},
+                body: minimalPayload,
+                redirect:'follow'
+              }).then(function(r){ return r.text(); })
+                .then(function(t){
+                  if(/^<!doctype|<html/i.test(t)){
+                    console.warn('[v17 self-heal] Server returned HTML — Apps Script may be past quota. Try again in 24h.');
+                    if(typeof toast === 'function') toast('Self-heal blocked: Apps Script quota exceeded. Wait 24h and reload.', 'err');
+                  } else {
+                    console.log('[v17 self-heal] Component log wiped from cloud successfully.');
+                    if(typeof toast === 'function') toast('Cloud state healed. Bloated component_log cleared.', 'ok');
+                  }
+                })
+                .catch(function(e){ console.error('[v17 self-heal] wipe failed', e && e.message); });
+            }
+          } catch(_){}
+
+          // Second: queue a normal trimmed save via the standard path
+          if(typeof saveState === 'function') saveState();
+          console.log('[v17 self-heal] Bloated state detected. Sending cleanup + trimmed save.');
+        }
+      } catch(e){ console.error('[v17 self-heal] failed', e); }
+    }, 3000);
   }
 }
 
