@@ -798,6 +798,10 @@ var DEVICE_ID = window.DEVICE_ID;
 
 var SYNC_DOCS = ['wheelsets','pools','archive','global_log','component_log','operators','lathes'];
 var STATE_URL_KEY = 'wst6_backup_url';  // reuse the same URL used by backups
+// v20: hardcoded default URL — every device automatically connects on first
+// load, no per-device config needed. Users can still override via "Backup &
+// restore" if the deployment URL ever changes.
+var DEFAULT_CLOUD_URL = 'https://script.google.com/macros/s/AKfycbxdL9Xv5OROk6iSNwRttFMFe2qz_iQAs9fwAGW-Nn5bu5LEzpEW4FQHeg90cX6b72_Xnw/exec';
 
 // ---------- Sheets-only Cloud interface ----------
 // This shim keeps the same API as the Firebase version so nothing else
@@ -824,7 +828,7 @@ window.Cloud = {
 
   isFullyLoaded: function(){ return this.ready && this.initialSnapshotsReceived >= 1; },
 
-  _getUrl: function(){ return localStorage.getItem(STATE_URL_KEY) || ''; },
+  _getUrl: function(){ return localStorage.getItem(STATE_URL_KEY) || DEFAULT_CLOUD_URL || ''; },
 
   init: async function(){
     if(this.ready) return;
@@ -7394,7 +7398,7 @@ if(exportBtn) exportBtn.addEventListener('click', function(){
 
 // User configures the Apps Script Web App URL once; saved in localStorage so
 // every device on the same browser remembers it.
-function getBackupUrl(){ return localStorage.getItem('wst6_backup_url') || ''; }
+function getBackupUrl(){ return localStorage.getItem('wst6_backup_url') || DEFAULT_CLOUD_URL || ''; }
 
 // Format an ISO timestamp string (or millisecond number) as local device time.
 // Used everywhere in the backup UI so times match the wall clock the user sees.
