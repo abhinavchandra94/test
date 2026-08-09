@@ -10151,45 +10151,27 @@ function applyCloudUpdate(docName, data, isFirst){
     }
     try { fullRefresh(); } catch(e){}
 
-    // v18 ONE-TIME MIGRATION: if this is the first time v18 has loaded, and the
-    // per-row tabs are empty but the legacy state tab still has data, trigger
-    // the migration action in Apps Script. Safe to run multiple times.
+    // v19: no more auto-migration. Data lives in the per-row tabs from day one
+    // (restored by the restore_tool.html). If for any reason the fetch is empty,
+    // show a friendly hint pointing to the "Backup & restore" button where the
+    // URL can be configured. No blind writes to cloud.
     setTimeout(function(){
       try {
-        var alreadyMigrated = localStorage.getItem('v18_migration_done');
-        if(alreadyMigrated) return;
-        // Cheap heuristic: if we already have wheelsets loaded via getAll, we're
-        // presumably on the new backend. If not, the migration will fix it.
-        var url = window.Cloud._endpoint || (window.Cloud._getUrl && window.Cloud._getUrl());
-        if(!url) return;
-        var body = 'action=migrateFromState&device=v18_migration';
-        fetch(url, {
-          method:'POST',
-          headers:{'Content-Type':'application/x-www-form-urlencoded'},
-          body: body,
-          redirect:'follow'
-        }).then(function(r){ return r.text(); })
-          .then(function(t){
-            if(/^<!doctype|<html/i.test(t)){
-              console.warn('[v18 migration] HTML response — Apps Script may be v3 (no migration action). Skipping.');
-              return;
-            }
-            var j;
-            try { j = JSON.parse(t); } catch(_){ return; }
-            if(j && j.ok){
-              localStorage.setItem('v18_migration_done', '1');
-              console.log('[v18 migration] complete:', j.results);
-              if(typeof toast === 'function' && j.results && j.results.wheelsets > 0){
-                toast('Migrated ' + j.results.wheelsets + ' wheelsets + ' + j.results.archive + ' archived to per-row storage', 'ok');
-              }
-              // Refetch to load from the new per-row tabs
-              if(window.Cloud && window.Cloud._fetchState){
-                window.Cloud._fetchState().then(function(p){ window.Cloud._applyInitial(p); fullRefresh(); }).catch(function(){});
-              }
-            }
-          })
-          .catch(function(e){ console.error('[v18 migration] failed', e && e.message); });
-      } catch(e){ console.error('[v18 migration] error', e); }
+        // If we loaded successfully, mark the migration as done so no stale checks fire
+        localStorage.setItem('v18_migration_done', '1');
+
+        // If the sheet returned empty (0 wheelsets), the URL might be pointing at
+        // the wrong sheet or a fresh one. Show a hint if that happened.
+        var loadedCount = Object.keys(WS).length + Object.keys(ARCHIVE).length;
+        if(loadedCount === 0){
+          if(typeof toast === 'function'){
+            toast('Dashboard loaded empty. Check "Backup & restore" → verify the URL points to your restored sheet.', 'err', 8000);
+          }
+          console.warn('[v19] Loaded 0 wheelsets — the connected sheet appears empty.');
+        } else {
+          console.log('[v19] Loaded ' + Object.keys(WS).length + ' active + ' + Object.keys(ARCHIVE).length + ' archived wheelsets.');
+        }
+      } catch(e){ console.error('[v19] post-load check failed', e); }
     }, 3000);
   }
 }
