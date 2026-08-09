@@ -7471,16 +7471,36 @@ function buildBackupSnapshot(label){
       pool_ct: (POOL.ct.r||[]).length + (POOL.ct.n||[]).length + (POOL.ct.w||[]).length + (POOL.ct.c||[]).length,
       events: (GLOBAL_LOG||[]).length
     },
-    state: {
-      WS: WS,
-      POOL: POOL,
-      ARCHIVE: ARCHIVE,
-      GLOBAL_LOG: (GLOBAL_LOG||[]).slice(0, 2000),
-      COMPONENT_LOG: COMPONENT_LOG,
-      OPERATORS: OPERATORS,
-      ATL_WIP: ATL_WIP, VTL_WIP: VTL_WIP,
-      SHIFT: SHIFT
-    }
+    state: (function(){
+      // v21: exclude COMPONENT_LOG (derived, rebuilt from wheelset logs on load)
+      // and trim archive per-wheelset logs to last 15 events. This keeps the
+      // snapshot under ~600 KB even at 15,000 wheelsets, easily fitting the
+      // Sheet's chunked-column payload storage.
+      function trimLogsForBackup(store){
+        var out = {};
+        Object.keys(store || {}).forEach(function(id){
+          var w = store[id];
+          if(!w) return;
+          if(w.log && w.log.length > 15){
+            var copy = {};
+            Object.keys(w).forEach(function(k){ copy[k] = w[k]; });
+            copy.log = w.log.slice(0, 15);
+            out[id] = copy;
+          } else { out[id] = w; }
+        });
+        return out;
+      }
+      return {
+        WS: trimLogsForBackup(WS),
+        POOL: POOL,
+        ARCHIVE: trimLogsForBackup(ARCHIVE),
+        GLOBAL_LOG: (GLOBAL_LOG||[]).slice(0, 500),
+        // COMPONENT_LOG excluded — it's derived and rebuilt on load
+        OPERATORS: OPERATORS,
+        ATL_WIP: ATL_WIP, VTL_WIP: VTL_WIP,
+        SHIFT: SHIFT
+      };
+    })()
   };
 }
 
