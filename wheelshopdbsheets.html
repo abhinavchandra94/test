@@ -7504,30 +7504,57 @@ function buildBackupSnapshot(label){
   };
 }
 
-// Push a snapshot to the Apps Script Web App.
-// Apps Script Web Apps don't return CORS-friendly responses unless explicitly
-// configured, so we send as form-encoded text and use a no-cors-friendly path.
+// v22: Backup Now downloads a full snapshot as a .json file to the user's
+// Downloads folder. No Apps Script call, no cell size limits, cannot fail on
+// large data. The Sheet already has per-row durable storage — this is an
+// additional explicit user-triggered snapshot for offline archiving.
 function pushBackup(label){
   return new Promise(function(resolve, reject){
-    var url = getBackupUrl();
-    if(!url){ reject(new Error('Backup URL not configured')); return; }
-    var snap = buildBackupSnapshot(label);
-    var payload = 'action=backup&payload=' + encodeURIComponent(JSON.stringify(snap));
-    fetch(url, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      body: payload,
-      redirect: 'follow'
-    }).then(function(r){
-      return r.json();
-    }).then(function(j){
-      if(j && j.ok){
-        localStorage.setItem('wst6_backup_last', String(snap.ts));
-        resolve(j);
-      } else {
-        reject(new Error((j && j.error) || 'Backup failed'));
+    try {
+      // Build the FULL snapshot including COMPONENT_LOG (rebuilt from wheelset
+      // logs, but preserved here for max fidelity in the offline file)
+      var snap = buildBackupSnapshot(label);
+      // Also fold in COMPONENT_LOG for the download since the file has no size limit
+      if (typeof COMPONENT_LOG !== 'undefined') {
+        snap.state.COMPONENT_LOG = COMPONENT_LOG;
       }
-    }).catch(function(err){ reject(err); });
+      // Restore untrimmed wheelset logs for max fidelity in the file
+      snap.state.WS = WS;
+      snap.state.ARCHIVE = ARCHIVE;
+      snap.state.GLOBAL_LOG = (GLOBAL_LOG || []).slice(0, 5000);
+
+      var json = JSON.stringify(snap);
+      var blob = new Blob([json], {type: 'application/json'});
+      var fname = 'wheelshop-backup-' + new Date().toISOString().replace(/[:.]/g,'-') + '.json';
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = fname;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      // Free the object URL after a short delay
+      setTimeout(function(){ URL.revokeObjectURL(a.href); }, 5000);
+
+      localStorage.setItem('wst6_backup_last', String(snap.ts));
+      // Track locally so the panel can show "recent downloaded backups"
+      try {
+        var localList = JSON.parse(localStorage.getItem('wst6_local_backups') || '[]');
+        localList.unshift({
+          filename: fname,
+          ts: snap.ts,
+          tsStr: snap.tsStr,
+          label: label || 'manual',
+          counts: snap.counts,
+          size_kb: Math.round(json.length / 1024)
+        });
+        if (localList.length > 50) localList = localList.slice(0, 50);
+        localStorage.setItem('wst6_local_backups', JSON.stringify(localList));
+      } catch(_){}
+
+      resolve({ok: true, filename: fname, size_kb: Math.round(json.length/1024)});
+    } catch(e) {
+      reject(e);
+    }
   });
 }
 
@@ -8000,22 +8027,14 @@ var APPS_SCRIPT_CODE = [
 ].join('\n');
 
 // Auto-backup timer
+// v22: auto-backup disabled since backups now download files (a periodic timer
+// would spam the Downloads folder). User can still hit "Backup Now" manually.
+// If a scheduled offline backup is needed later, add it back with a different
+// storage mechanism.
 var _autoBackupTimer = null;
 function startAutoBackupTimer(){
   if(_autoBackupTimer){ clearInterval(_autoBackupTimer); _autoBackupTimer = null; }
-  var mins = getAutoBackupMin();
-  if(mins <= 0) return;
-  if(!getBackupUrl()) return;
-  _autoBackupTimer = setInterval(function(){
-    // Skip if no data (avoid backing up empty seed)
-    if(Object.keys(WS||{}).length === 0 && Object.keys(ARCHIVE||{}).length === 0) return;
-    pushBackup('auto').then(function(){
-      var ps = document.getElementById('persist-status');
-      if(ps){ var t = ps.textContent; ps.textContent = '☁ Auto-backed up'; setTimeout(function(){ ps.textContent = t; }, 2000); }
-    }).catch(function(err){
-      console.error('Auto-backup failed:', err);
-    });
-  }, mins * 60 * 1000);
+  // No-op — see comment above
 }
 
 // Wire the header Backup button
@@ -8054,10 +8073,10 @@ Actions.setBackupAuto = function(_, extra){
 Actions.doBackupNow = function(){
   var lblEl = document.getElementById('bk-label');
   var label = (lblEl && lblEl.value || '').trim() || 'manual';
-  if(!getBackupUrl()){ renderBackupModal({backupResult:{ok:false, msg:'Set the URL first.'}}); return; }
-  renderBackupModal({backupResult:{ok:true, msg:'Backing up…'}});
+  // v22: no URL check — backups now download locally, always available
+  renderBackupModal({backupResult:{ok:true, msg:'Preparing backup file...'}});
   pushBackup(label).then(function(r){
-    renderBackupModal({backupResult:{ok:true, msg:'✓ Backup saved as row '+r.row+'.'}});
+    renderBackupModal({backupResult:{ok:true, msg:'✓ Downloaded '+r.filename+' ('+r.size_kb+' KB)'}});
   }).catch(function(err){
     renderBackupModal({backupResult:{ok:false, msg:'✗ '+err.message}});
   });
