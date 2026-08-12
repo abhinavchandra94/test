@@ -975,43 +975,101 @@ window.Cloud = {
   },
 
   // -- Admin lock: single active admin device --
+  _lastClaimTs: 0,   // when we last successfully wrote our claim to Firestore
+
   _subscribeAdminLock: function(){
     var self = this;
-    self._unsubs.push(_fb_db.doc('admin_lock/current').onSnapshot(function(doc){
+    self._unsubs.push(_fb_db.doc('admin_lock/current').onSnapshot({includeMetadataChanges: true}, function(doc){
       var lock = doc.exists ? doc.data() : null;
-      // If someone else holds admin, drop our admin status locally
-      if(lock && lock.sessionNonce && lock.sessionNonce !== self._mySessionNonce){
-        // Check if lock is fresh (heartbeat within last 5 min)
-        var lastSeen = lock.lastSeen ? lock.lastSeen.toMillis() : 0;
-        var fresh = (Date.now() - lastSeen) < 5*60*1000;
-        if(fresh && self.isAdmin){
-          // We got kicked
-          self.isAdmin = false;
-          self.stopAdminHeartbeat();
-          if(self.onAdminLockChange) self.onAdminLockChange({kicked:true, byDevice: lock.deviceId, at: lastSeen});
-        }
+      var fromCache = doc.metadata.fromCache;
+
+      // Ignore cached snapshots that would incorrectly indicate someone else
+      // holds admin. Only trust server-confirmed lock states for take-over logic.
+      if(fromCache){
+        // Even for cache reads, notify the UI so it can show the current lock
+        // state (but the UI's kick logic uses the same nonce comparison, and
+        // since our nonce is stable, this is safe).
+        if(self.onAdminLockChange) self.onAdminLockChange(lock);
+        return;
       }
-      if(self.onAdminLockChange) self.onAdminLockChange({lock: lock});
+
+      // If we JUST claimed admin (within last 3 seconds), any lock doc that
+      // doesn't match our nonce is a stale echo — ignore.
+      var justClaimed = (Date.now() - self._lastClaimTs) < 3000;
+      if(justClaimed && lock && lock.sessionNonce !== self._mySessionNonce){
+        return;
+      }
+
+      // If we ARE admin locally and the server shows a different nonce holding
+      // the lock, we've been taken over. Drop admin flag; the v23 UI listener
+      // (handleAdminLockChange) will detect the mismatch and show the banner.
+      if(self.isAdmin && lock && lock.sessionNonce && lock.sessionNonce !== self._mySessionNonce){
+        self.isAdmin = false;
+        self.stopAdminHeartbeat();
+        self._notify();
+      }
+
+      // Pass RAW lock object to UI — v23's handleAdminLockChange expects
+      // {deviceId, sessionNonce, claimedAt, lastSeen} directly (or null).
+      if(self.onAdminLockChange) self.onAdminLockChange(lock);
     }, function(err){ console.error('[Firebase] admin_lock listener:', err); }));
   },
 
-  claimAdminLock: function(){
+  claimAdminLock: function(force){
     var self = this;
-    return _fb_db.doc('admin_lock/current').set({
-      deviceId: DEVICE_ID,
-      sessionNonce: self._mySessionNonce,
-      claimedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      lastSeen: firebase.firestore.FieldValue.serverTimestamp()
-    }).then(function(){
-      self.isAdmin = true;
-      self.startAdminHeartbeat();
-      self._notify();
-      return {status:'admin'};
+    var lockRef = _fb_db.doc('admin_lock/current');
+    // Mark claim time BEFORE the write so listener echoes during the write
+    // are treated as stale.
+    self._lastClaimTs = Date.now();
+
+    // Transactional claim: read current lock, decide whether to claim
+    return _fb_db.runTransaction(function(tx){
+      return tx.get(lockRef).then(function(doc){
+        var currentLock = doc.exists ? doc.data() : null;
+
+        // Check if lock is held by someone else and still fresh (heartbeat within 5 min)
+        var heldByOther = false;
+        var heldFresh = false;
+        if(currentLock && currentLock.sessionNonce && currentLock.sessionNonce !== self._mySessionNonce){
+          heldByOther = true;
+          var lastSeen = 0;
+          if(currentLock.lastSeen && typeof currentLock.lastSeen.toMillis === 'function'){
+            lastSeen = currentLock.lastSeen.toMillis();
+          }
+          heldFresh = (Date.now() - lastSeen) < 5*60*1000;
+        }
+
+        if(heldByOther && heldFresh && !force){
+          // Held by someone else and still fresh. Don't take over unless forced.
+          return {success: false, currentHolder: currentLock};
+        }
+
+        // Either lock is free, expired, held by us, or force=true — claim it
+        tx.set(lockRef, {
+          deviceId: DEVICE_ID,
+          sessionNonce: self._mySessionNonce,
+          claimedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        return {success: true};
+      });
+    }).then(function(result){
+      if(result.success){
+        self.isAdmin = true;
+        self._lastClaimTs = Date.now();
+        self.startAdminHeartbeat();
+        self._notify();
+      }
+      return result;
     });
   },
 
   attemptClaim: function(cb){
-    this.claimAdminLock().then(function(){ if(cb) cb('admin'); }).catch(function(e){ if(cb) cb(null, e); });
+    // Legacy simple API: attempts a non-forced claim; on success, callback('admin')
+    this.claimAdminLock(false).then(function(r){
+      if(r && r.success){ if(cb) cb('admin'); }
+      else { if(cb) cb(null, r && r.currentHolder); }
+    }).catch(function(e){ if(cb) cb(null, e); });
   },
 
   releaseAdminLock: function(){
