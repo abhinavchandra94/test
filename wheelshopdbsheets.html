@@ -1038,10 +1038,11 @@ window.Cloud = {
     this._notify();
     if(this._rowFlushTimer) clearTimeout(this._rowFlushTimer);
     var self = this;
-    this._rowFlushTimer = setTimeout(function(){ self._flushRowWrites(); }, 800);
+    this._rowFlushTimer = setTimeout(function(){ self._flushRowWrites(); }, 1500);
   },
   _flushRowWrites: function(){
     if(this._rowFlushTimer){ clearTimeout(this._rowFlushTimer); this._rowFlushTimer = null; }
+    if(this._flushInProgress) return;   // don't fire multiple concurrent flushes
     var url = this._getUrl();
     if(!url) return;
     var q = this._rowWriteQueue;
@@ -1062,50 +1063,84 @@ window.Cloud = {
 
     if(writes.length === 0) return;
 
-    // Send them in parallel (Sheets handles concurrent Apps Script invocations)
+    // v23: SEQUENTIAL writes — send one at a time, wait for each response before
+    // sending the next. Firing parallel fetch() calls saturates Chrome's per-origin
+    // connection limit (6) and Google Apps Script's parallel-invocation quota,
+    // which manifests as "Failed to fetch" errors that keep re-queueing writes
+    // into an ever-growing pending pile. Sequential is slower per batch (~1-2 sec
+    // per row) but reliable — a single-wheelset save still completes in ~2 sec,
+    // and multi-row saves complete predictably. Also drains any backlog naturally.
+    self._flushInProgress = true;
+    self.pendingWrites = writes.length;
+    self._notify();
+
+    var idx = 0;
     var failed = [];
-    var completed = 0;
-    var errorSet = false;
-    writes.forEach(function(w){
+    function sendNext(){
+      if(idx >= writes.length){
+        // Done
+        self._flushInProgress = false;
+        if(failed.length === 0){
+          self.pendingWrites = 0;
+          self.online = true;
+          self.err = null;
+          self._notify();
+          // If more writes queued up during the flush, drain them now
+          if(Object.keys(self._rowWriteQueue.ws).length > 0 ||
+             Object.keys(self._rowWriteQueue.arch).length > 0 ||
+             self._rowWriteQueue.pool !== null ||
+             self._rowWriteQueue.ops !== null ||
+             self._rowWriteQueue.lathes !== null){
+            setTimeout(function(){ self._flushRowWrites(); }, 100);
+          }
+        } else {
+          // Re-queue only the failed writes for a retry later
+          failed.forEach(function(f){
+            var w = f.write;
+            try {
+              if(w.action === 'saveWheelset') self._rowWriteQueue.ws[w.id] = w.data ? JSON.parse(w.data) : null;
+              else if(w.action === 'saveArchive') self._rowWriteQueue.arch[w.id] = w.data ? JSON.parse(w.data) : null;
+              else if(w.action === 'savePool') self._rowWriteQueue.pool = JSON.parse(w.data);
+              else if(w.action === 'saveOperators') self._rowWriteQueue.ops = JSON.parse(w.data);
+              else if(w.action === 'saveLathes') self._rowWriteQueue.lathes = JSON.parse(w.data);
+            } catch(e){ console.error('re-queue failed', w.action, e); }
+          });
+          self.pendingWrites = failed.length;
+          self.online = false;
+          self.err = 'Save error: ' + failed.length + ' write(s) failed — will retry in 15s.';
+          self._notify();
+          console.error('[Cloud] '+failed.length+'/'+writes.length+' writes failed. Will retry in 15s.');
+          setTimeout(function(){ self._flushRowWrites(); }, 15000);
+        }
+        return;
+      }
+
+      var w = writes[idx];
       var body = Object.keys(w).map(function(k){ return encodeURIComponent(k)+'='+encodeURIComponent(w[k]); }).join('&');
       body += '&device=' + encodeURIComponent(DEVICE_ID);
+
       fetch(url, {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body, redirect:'follow'})
         .then(function(r){ return r.text(); })
         .then(function(t){
           if(/^\s*(<!doctype|<html)/i.test(t)) throw new Error('HTML response');
           var j;
           try { j = JSON.parse(t); }
-          catch(_){ throw new Error('Non-JSON: '+t.substring(0,100)); }
+          catch(_){ throw new Error('Non-JSON: '+t.substring(0,80)); }
           if(!j.ok) throw new Error(j.error || 'save failed');
         })
         .catch(function(e){
           failed.push({write: w, error: e && e.message});
-          if(!errorSet){ errorSet = true; self.online = false; self.err = 'Save error: ' + (e && e.message); self._notify(); }
         })
         .then(function(){
-          completed++;
-          if(completed === writes.length){
-            if(failed.length === 0){
-              self.pendingWrites = 0;
-              self.online = true;
-              self.err = null;
-              self._notify();
-            } else {
-              // Re-queue only the failed writes
-              failed.forEach(function(f){
-                var w = f.write;
-                if(w.action === 'saveWheelset') self._rowWriteQueue.ws[w.id] = w.data ? JSON.parse(w.data) : null;
-                else if(w.action === 'saveArchive') self._rowWriteQueue.arch[w.id] = w.data ? JSON.parse(w.data) : null;
-                else if(w.action === 'savePool') self._rowWriteQueue.pool = JSON.parse(w.data);
-                else if(w.action === 'saveOperators') self._rowWriteQueue.ops = JSON.parse(w.data);
-                else if(w.action === 'saveLathes') self._rowWriteQueue.lathes = JSON.parse(w.data);
-              });
-              console.error('[Cloud] '+failed.length+'/'+writes.length+' writes failed. Will retry in 15s.');
-              setTimeout(function(){ self._scheduleRowFlush(); }, 15000);
-            }
-          }
+          idx++;
+          self.pendingWrites = writes.length - idx + failed.length;
+          self._notify();
+          // Small delay between writes so we don't slam Apps Script; also gives
+          // the browser a chance to process incoming responses.
+          setTimeout(sendNext, 100);
         });
-    });
+    }
+    sendNext();
   },
 
   _flushWrites: function(){
