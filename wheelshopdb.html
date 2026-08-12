@@ -1731,6 +1731,10 @@ function saveState(){
     // v18: Cloud push uses PER-WHEELSET writes (not one giant blob).
     // Each modified wheelset is a small ~3 KB write, never exceeds cell limits.
     // We diff against the last-saved snapshot so unchanged wheelsets aren't re-sent.
+    // v25: skip cloud push if we're currently applying a remote listener event.
+    // Otherwise our own listener triggers a save that triggers our listener again.
+    if(window._applyingRemote){ return; }
+
     if(bootSafe && window.Cloud && window.Cloud.saveWheelsetRow){
       // Build "lastSaved" snapshot cache if it doesn't exist yet
       if(!window._lastSaved) window._lastSaved = {ws:{}, archive:{}, pool:'', ops:'', lathes:''};
@@ -10058,6 +10062,44 @@ function rebuildComponentLogFromWheelsets(){
 }
 
 function applyCloudUpdate(docName, data, isFirst){
+  if(data == null) return;
+  // v25 echo-loop guard: block saveState() from pushing while we're applying
+  // a remote update. Without this, our own onSnapshot listener triggers
+  // applyCloudUpdate → fullRefresh → saveState → new Firestore write → listener
+  // fires again → infinite echo. Every save call while this flag is set will
+  // still update localStorage but skip the cloud push.
+  window._applyingRemote = true;
+  try {
+    _applyCloudUpdateImpl(docName, data, isFirst);
+  } finally {
+    // Clear the flag after a microtask so any synchronous fullRefresh triggered
+    // by this update sees the guard. Async work (setTimeout etc.) will proceed
+    // normally.
+    Promise.resolve().then(function(){ window._applyingRemote = false; });
+  }
+}
+
+function _applyCloudUpdateImpl(docName, data, isFirst){
+  // v25: as remote data arrives, populate the _lastSaved cache used by
+  // saveState()'s diff-check. Without this, when the user later triggers
+  // a save, saveState sees "nothing in _lastSaved" and re-pushes every
+  // wheelset even though nothing changed.
+  if(!window._lastSaved) window._lastSaved = {ws:{}, archive:{}, pool:'', ops:'', lathes:''};
+  if(docName === 'wheelsets' && data && typeof data === 'object'){
+    Object.keys(data).forEach(function(id){
+      try { window._lastSaved.ws[id] = JSON.stringify(data[id]); } catch(_){}
+    });
+  } else if(docName === 'archive' && data && typeof data === 'object'){
+    Object.keys(data).forEach(function(id){
+      try { window._lastSaved.archive[id] = JSON.stringify(data[id]); } catch(_){}
+    });
+  } else if(docName === 'pools' && data){
+    try { window._lastSaved.pool = JSON.stringify(data); } catch(_){}
+  } else if(docName === 'operators' && data){
+    try { window._lastSaved.ops = JSON.stringify(data); } catch(_){}
+  } else if(docName === 'lathes' && data){
+    try { window._lastSaved.lathes = JSON.stringify(data); } catch(_){}
+  }
   if(data == null) return;
   // Trace into cloud diagnostics
   if(window.Cloud && window.Cloud._trace){
